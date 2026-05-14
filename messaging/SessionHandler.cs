@@ -1,3 +1,10 @@
+using System;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using LanChat.Shared.Security;
+using SimpleTcp;
+using SimpleTcp.Exceptions;
 
 namespace LanChat.Messaging
 {
@@ -6,6 +13,12 @@ namespace LanChat.Messaging
         private readonly ISimpleTcpClient _client;
         private readonly MessageDispatcher _dispatcher;
         private bool _isRunning;
+
+        public ISimpleTcpClient TcpClient => _client;
+
+        public AesCipher? Cipher { get; set; }
+
+        public bool IsEncrypted => Cipher != null;
 
         public SessionHandler(ISimpleTcpClient client, MessageDispatcher dispatcher)
         {
@@ -21,8 +34,17 @@ namespace LanChat.Messaging
                 while (_isRunning && !ct.IsCancellationRequested)
                 {
                     var envelope = await _client.ReceiveObjectAsync<MessageEnvelope>();
+                    if (envelope == null) continue;
+
+                    if (IsEncrypted && envelope.Payload.ValueKind == JsonValueKind.String)
+                    {
+                        string encryptedPayload = envelope.Payload.GetString() ?? string.Empty;
+                        string decryptedJson = Cipher!.Decrypt(encryptedPayload);
+                        using var doc = JsonDocument.Parse(decryptedJson);
+                        envelope.Payload = doc.RootElement.Clone();
+                    }
                     
-                    await _dispatcher.DispatchAsync(_client, envelope);
+                    await _dispatcher.DispatchAsync(this, envelope);
                 }
             }
             catch (ConnectionClosedException)
@@ -39,7 +61,24 @@ namespace LanChat.Messaging
             }
         }
 
+        public async Task SendAsync<T>(string routingKey, T payload)
+        {
+            MessageEnvelope envelope;
+
+            if (IsEncrypted)
+            {
+                string plainJson = JsonSerializer.Serialize(payload);
+                string encryptedBase64 = Cipher!.Encrypt(plainJson);
+                envelope = MessageEnvelope.Create(routingKey, encryptedBase64);
+            }
+            else
+            {
+                envelope = MessageEnvelope.Create(routingKey, payload);
+            }
+
+            await _client.SendObjectAsync(envelope);
+        }
+
         public void Stop() => _isRunning = false;
     }
-
 }

@@ -1,0 +1,5 @@
+C:\Workspace\Socket\LanChat\client\obj\Debug\net9.0-windows\LanChat.Client.csproj.AssemblyReference.cache
+C:\Workspace\Socket\LanChat\client\obj\Debug\net9.0-windows\LanChat.Client.GeneratedMSBuildEditorConfig.editorconfig
+C:\Workspace\Socket\LanChat\client\obj\Debug\net9.0-windows\LanChat.Client.AssemblyInfoInputs.cache
+C:\Workspace\Socket\LanChat\client\obj\Debug\net9.0-windows\LanChat.Client.AssemblyInfo.cs
+C:\Workspace\Socket\LanChat\client\obj\Debug\net9.0-windows\LanChat.Client.csproj.CoreCompileInputs.cache

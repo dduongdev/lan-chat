@@ -1,0 +1,17 @@
+C:\Workspace\Socket\LanChat\messaging\bin\Debug\net9.0\LanChat.Messaging.deps.json
+C:\Workspace\Socket\LanChat\messaging\bin\Debug\net9.0\LanChat.Messaging.dll
+C:\Workspace\Socket\LanChat\messaging\bin\Debug\net9.0\LanChat.Messaging.pdb
+C:\Workspace\Socket\LanChat\messaging\bin\Debug\net9.0\LanChat.Shared.dll
+C:\Workspace\Socket\LanChat\messaging\bin\Debug\net9.0\SimpleTcp.dll
+C:\Workspace\Socket\LanChat\messaging\bin\Debug\net9.0\SimpleTcp.pdb
+C:\Workspace\Socket\LanChat\messaging\bin\Debug\net9.0\LanChat.Shared.pdb
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat.Messaging.csproj.AssemblyReference.cache
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat.Messaging.GeneratedMSBuildEditorConfig.editorconfig
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat.Messaging.AssemblyInfoInputs.cache
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat.Messaging.AssemblyInfo.cs
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat.Messaging.csproj.CoreCompileInputs.cache
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat..6E9EBBF4.Up2Date
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat.Messaging.dll
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\refint\LanChat.Messaging.dll
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\LanChat.Messaging.pdb
+C:\Workspace\Socket\LanChat\messaging\obj\Debug\net9.0\ref\LanChat.Messaging.dll

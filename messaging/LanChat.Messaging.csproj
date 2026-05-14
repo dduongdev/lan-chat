@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\simple-tcp\SimpleTcp.csproj" />
+    <ProjectReference Include="..\shared\LanChat.Shared.csproj" />
   </ItemGroup>
 
 </Project>

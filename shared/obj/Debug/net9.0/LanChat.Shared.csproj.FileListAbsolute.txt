@@ -1,0 +1,11 @@
+C:\Workspace\Socket\LanChat\shared\bin\Debug\net9.0\LanChat.Shared.deps.json
+C:\Workspace\Socket\LanChat\shared\bin\Debug\net9.0\LanChat.Shared.dll
+C:\Workspace\Socket\LanChat\shared\bin\Debug\net9.0\LanChat.Shared.pdb
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\LanChat.Shared.GeneratedMSBuildEditorConfig.editorconfig
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\LanChat.Shared.AssemblyInfoInputs.cache
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\LanChat.Shared.AssemblyInfo.cs
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\LanChat.Shared.csproj.CoreCompileInputs.cache
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\LanChat.Shared.dll
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\refint\LanChat.Shared.dll
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\LanChat.Shared.pdb
+C:\Workspace\Socket\LanChat\shared\obj\Debug\net9.0\ref\LanChat.Shared.dll

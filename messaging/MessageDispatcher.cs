@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 using LanChat.Messaging.Exceptions;
-using SimpleTcp;
 
 namespace LanChat.Messaging
 {
@@ -43,11 +42,11 @@ namespace LanChat.Messaging
             }
         }
 
-        public Task DispatchAsync(ISimpleTcpClient client, MessageEnvelope envelope)
+        public Task DispatchAsync(SessionHandler session, MessageEnvelope envelope)
         {
-            if (client == null)
+            if (session == null)
             {
-                throw new ArgumentNullException(nameof(client));
+                throw new ArgumentNullException(nameof(session));
             }
 
             if (envelope == null)
@@ -57,7 +56,7 @@ namespace LanChat.Messaging
 
             if (_handlers.TryGetValue(envelope.RoutingKey, out IMessageHandler? handler))
             {
-                return handler.HandleAsync(client, envelope.Payload);
+                return handler.HandleAsync(session, envelope.Payload);
             }
 
             throw new UnsupportedRoutingKeyException(envelope.RoutingKey);
