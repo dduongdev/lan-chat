@@ -14,6 +14,8 @@ namespace LanChat.Client.Handlers
 
         public async Task HandleAsync(SessionHandler session, JsonElement payload)
         {
+            Console.WriteLine($"[Client] Received Server's Public Key. Generating AES Key...");
+
             // 1. Nhận Public Key của Server.
             var pubKeyPayload = payload.Deserialize<HandshakePubKeyPayload>();
             if (pubKeyPayload == null || string.IsNullOrEmpty(pubKeyPayload.RsaPublicKey))
@@ -26,6 +28,7 @@ namespace LanChat.Client.Handlers
             var aesCipher = new AesCipher();
 
             // 3. Dùng RsaManager.Encrypt() để mã hóa Key và IV vừa tạo bằng Public Key của Server.
+            Console.WriteLine($"[Client] Encrypting AES Key with Server's RSA Public Key and sending back...");
             byte[] encryptedKey = RsaManager.Encrypt(aesCipher.Key, pubKeyPayload.RsaPublicKey);
             byte[] encryptedIV = RsaManager.Encrypt(aesCipher.IV, pubKeyPayload.RsaPublicKey);
 

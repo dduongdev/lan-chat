@@ -18,6 +18,8 @@ namespace LanChat.Server.Handlers
         {
             try
             {
+                Console.WriteLine($"[Server] Received HandshakeRes. Decrypting AES Key & IV...");
+
                 // 1. Nhận gói tin chứa AES Key & IV đã mã hóa.
                 var resPayload = payload.Deserialize<HandshakeResponsePayload>();
                 if (resPayload == null)
@@ -34,6 +36,7 @@ namespace LanChat.Server.Handlers
 
                 // 4. Gán đối tượng AesCipher này vào session.Cipher.
                 session.Cipher = aesCipher;
+                Console.WriteLine($"[Server] AES Key established. Channel is now SECURE.");
 
                 // 5. Gửi thông báo auth.handshake.done về Client
                 // (lúc này, session.SendAsync sẽ tự động mã hóa gói tin này bằng AES).

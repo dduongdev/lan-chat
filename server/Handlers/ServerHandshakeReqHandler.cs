@@ -13,6 +13,8 @@ namespace LanChat.Server.Handlers
 
         public async Task HandleAsync(SessionHandler session, JsonElement payload)
         {
+            Console.WriteLine($"[Server] Received HandshakeReq. Sending Public Key...");
+            
             // 1. Nhận yêu cầu từ Client.
             // 2. Lấy Public Key từ RsaManager (Singleton).
             string publicKey = ServerSecurityState.RsaManager.GetPublicKey();

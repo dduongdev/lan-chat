@@ -14,7 +14,7 @@ namespace LanChat.Client.Handlers
         {
             // 1. Nhận thông báo thành công từ Server (gói tin này đã được mã hóa AES).
             // 2. Xác nhận kênh truyền đã an toàn.
-            Console.WriteLine("Secure Handshake completed successfully. Channel is now encrypted with AES.");
+            Console.WriteLine("[Client] Secure Handshake completed successfully. Channel is now encrypted with AES.");
             
             // 3. Kích hoạt giao diện người dùng chuyển sang màn hình Đăng nhập/Đăng ký.
             // (Sẽ triển khai bằng event hoặc callback trong UI layer)
