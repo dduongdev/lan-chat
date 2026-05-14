@@ -23,5 +23,17 @@ namespace LanChat.Shared.Constants
 
         // Server -> Client: Phản hồi kết quả đăng ký
         public const string AuthRegisterRes = "auth.register.res";
+
+        // Client -> Server: Yêu cầu đăng nhập
+        public const string AuthLoginReq = "auth.login.req";
+
+        // Server -> Client: Phản hồi kết quả đăng nhập
+        public const string AuthLoginRes = "auth.login.res";
+
+        // Server -> Client: Thông báo có người dùng mới online
+        public const string UserJoined = "user.joined";
+
+        // Server -> Client: Thông báo có người dùng offline
+        public const string UserLeft = "user.left";
     }
 }

@@ -5,6 +5,7 @@ using SimpleTcp;
 using LanChat.Messaging;
 using LanChat.Client.Handlers;
 using LanChat.Client.Handlers.Auth;
+using LanChat.Client.Handlers.Presence;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
 
@@ -22,6 +23,9 @@ namespace LanChat.Client
             dispatcher.RegisterHandler(new ClientHandshakePubKeyHandler());
             dispatcher.RegisterHandler(new ClientHandshakeDoneHandler());
             dispatcher.RegisterHandler(new ClientRegisterResponseHandler());
+            dispatcher.RegisterHandler(new ClientLoginResponseHandler());
+            dispatcher.RegisterHandler(new ClientUserPresenceHandler(RoutingKeys.UserJoined));
+            dispatcher.RegisterHandler(new ClientUserPresenceHandler(RoutingKeys.UserLeft));
 
             try
             {
@@ -44,13 +48,13 @@ namespace LanChat.Client
 
                 if (sessionHandler.IsEncrypted)
                 {
-                    Console.WriteLine("Channel is encrypted. Simulating User Registration...");
-                    var registerPayload = new RegisterRequestPayload
+                    Console.WriteLine("Channel is encrypted. Simulating User Login...");
+                    var loginPayload = new LoginRequestPayload
                     {
                         Username = "testuser",
                         Password = "password123"
                     };
-                    await sessionHandler.SendAsync(RoutingKeys.AuthRegisterReq, registerPayload);
+                    await sessionHandler.SendAsync(RoutingKeys.AuthLoginReq, loginPayload);
                 }
                 else
                 {

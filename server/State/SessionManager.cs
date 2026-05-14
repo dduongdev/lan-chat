@@ -16,7 +16,7 @@ namespace LanChat.Server.State
 
         public int Count => _sessions.Count;
 
-        public bool TryAdd(string username, SessionHandler session)
+        public void AddOrUpdateSession(string username, SessionHandler session)
         {
             if (string.IsNullOrWhiteSpace(username))
             {
@@ -28,7 +28,18 @@ namespace LanChat.Server.State
                 throw new ArgumentNullException(nameof(session));
             }
 
-            return _sessions.TryAdd(username, session);
+            // Nếu đã tồn tại, đóng session cũ (để thực hiện logic E2)
+            if (_sessions.TryRemove(username, out var oldSession))
+            {
+                try
+                {
+                    Console.WriteLine($"[SessionManager] User '{username}' logged in from another location. Disconnecting old session.");
+                    oldSession.TcpClient.Close(); 
+                }
+                catch { /* Ignore error on disconnect */ }
+            }
+            
+            _sessions[username] = session;
         }
 
         public bool TryRemove(string username, out SessionHandler? session)

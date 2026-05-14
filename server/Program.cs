@@ -11,6 +11,8 @@ using LanChat.Server.Handlers;
 using LanChat.Server.Handlers.Auth;
 using LanChat.Server.Security;
 using LanChat.Server.State;
+using LanChat.Shared.Constants;
+using LanChat.Shared.Payloads;
 
 namespace LanChat.Server
 {
@@ -25,6 +27,7 @@ namespace LanChat.Server
             services.AddDbContext<AppDbContext>(options =>
                 options.UseSqlite("Data Source=lanchat.db"));
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
+            services.AddSingleton<SessionManager>();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -36,22 +39,20 @@ namespace LanChat.Server
                 Console.WriteLine("Database ensured created.");
             }
 
-            // Lấy DbContext và Hasher
+            // Lấy các Singleton services
             var passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
+            var sessionManager = serviceProvider.GetRequiredService<SessionManager>();
 
             // Khởi tạo Dispatcher và đăng ký Handler
             var dispatcher = new MessageDispatcher();
             dispatcher.RegisterHandler(new ServerHandshakeReqHandler());
             dispatcher.RegisterHandler(new ServerHandshakeResHandler());
-            
-            // Register UC-02 Registration Handler
             dispatcher.RegisterHandler(new ServerRegisterHandler(serviceProvider, passwordHasher));
+            dispatcher.RegisterHandler(new ServerLoginHandler(serviceProvider, passwordHasher, sessionManager));
 
             var tcpListener = new TcpListener(IPAddress.Any, 8080);
             tcpListener.Start();
             Console.WriteLine("Server is listening on port 8080...");
-
-            var sessionManager = new SessionManager();
 
             while (true)
             {
@@ -63,8 +64,36 @@ namespace LanChat.Server
                 
                 // For test purpose, we just run the session
                 _ = Task.Run(async () => {
-                    await sessionHandler.StartAsync();
-                    Console.WriteLine("Session ended.");
+                    try
+                    {
+                        await sessionHandler.StartAsync();
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Session disconnected: {ex.Message}");
+                    }
+                    finally
+                    {
+                        // Khi session kết thúc, nếu user đã đăng nhập, ta xóa khỏi SessionManager và broadcast
+                        if (!string.IsNullOrEmpty(sessionHandler.Username))
+                        {
+                            if (sessionManager.TryRemove(sessionHandler.Username, out _))
+                            {
+                                Console.WriteLine($"[Server] User '{sessionHandler.Username}' disconnected.");
+                                
+                                // Broadcast UserLeft
+                                var leftPayload = new UserPresencePayload { Username = sessionHandler.Username };
+                                foreach (var otherSession in sessionManager.Snapshot())
+                                {
+                                    try
+                                    {
+                                        await otherSession.Value.SendAsync(RoutingKeys.UserLeft, leftPayload);
+                                    }
+                                    catch { /* Ignore */ }
+                                }
+                            }
+                        }
+                    }
                 });
             }
         }

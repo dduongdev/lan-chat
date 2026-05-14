@@ -20,6 +20,12 @@ namespace LanChat.Messaging
 
         public bool IsEncrypted => Cipher != null;
 
+        /// <summary>
+        /// Định danh của người dùng đã được xác thực trong phiên làm việc này.
+        /// Sẽ có giá trị sau khi Đăng nhập thành công.
+        /// </summary>
+        public string? Username { get; set; }
+
         public SessionHandler(ISimpleTcpClient client, MessageDispatcher dispatcher)
         {
             _client = client;
