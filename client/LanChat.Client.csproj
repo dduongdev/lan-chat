@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk.WindowsDesktop">
+
+  <PropertyGroup>
+    <TargetFramework>net9.0-windows</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <OutputType>WinExe</OutputType>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\shared\LanChat.Shared.csproj" />
+    <ProjectReference Include="..\messaging\LanChat.Messaging.csproj" />
+    <ProjectReference Include="..\simple-tcp\SimpleTcp.csproj" />
+  </ItemGroup>
+
+</Project>
