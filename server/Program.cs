@@ -63,6 +63,10 @@ namespace LanChat.Server
             dispatcher.RegisterHandler(new ServerFileStatusHandler(serviceProvider));
             dispatcher.RegisterHandler(new ServerLogoutHandler(sessionManager));
             dispatcher.RegisterHandler(new ServerHeartbeatHandler());
+            dispatcher.RegisterHandler(new ServerGroupListHandler(serviceProvider));
+            dispatcher.RegisterHandler(new ServerGroupCreateHandler(serviceProvider, sessionManager));
+            dispatcher.RegisterHandler(new ServerGroupAddHandler(serviceProvider, sessionManager));
+            dispatcher.RegisterHandler(new ServerGroupLeaveHandler(serviceProvider, sessionManager));
 
             var tcpListener = new TcpListener(IPAddress.Any, 8080);
             tcpListener.Start();

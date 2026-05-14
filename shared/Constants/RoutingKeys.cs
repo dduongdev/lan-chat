@@ -75,6 +75,25 @@ namespace LanChat.Shared.Constants
         // Client -> Server: Yêu cầu đăng xuất
         public const string AuthLogoutReq = "auth.logout.req";
 
+        // Group creation (Already existed in UC-05, we just redefine here for clarity)
+        public const string GroupCreateReq  = "group.create.req";
+        public const string GroupCreateRes  = "group.create.res";
+        public const string GroupInvite     = "group.invite";     // Bị thêm vào nhóm
+
+        // Lấy danh sách nhóm
+        public const string GroupListReq    = "group.list.req";
+        public const string GroupListRes    = "group.list.res";
+
+        // Thêm thành viên
+        public const string GroupAddReq     = "group.add.req";
+        public const string GroupAddRes     = "group.add.res";
+        public const string GroupMemberAdded = "group.member.added"; // Broadcast cho nhóm
+
+        // Rời nhóm
+        public const string GroupLeaveReq   = "group.leave.req";
+        public const string GroupLeaveRes   = "group.leave.res";
+        public const string GroupMemberLeft = "group.member.left";   // Broadcast cho nhóm
+
         // Client -> Server: Ping heartbeat
         public const string SysPing = "sys.ping";
     }

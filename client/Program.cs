@@ -40,6 +40,13 @@ namespace LanChat.Client
             dispatcher.RegisterHandler(new ClientFileOfferHandler());
             dispatcher.RegisterHandler(new ClientFileStartHandler());
             dispatcher.RegisterHandler(new ClientFileStatusHandler());
+            dispatcher.RegisterHandler(new ClientGroupCreateResponseHandler());
+            dispatcher.RegisterHandler(new ClientGroupListResponseHandler());
+            dispatcher.RegisterHandler(new ClientGroupInviteHandler());
+            dispatcher.RegisterHandler(new ClientGroupAddResponseHandler());
+            dispatcher.RegisterHandler(new ClientGroupMemberAddedHandler());
+            dispatcher.RegisterHandler(new ClientGroupLeaveResponseHandler());
+            dispatcher.RegisterHandler(new ClientGroupMemberLeftHandler());
 
             try
             {
@@ -154,6 +161,24 @@ namespace LanChat.Client
                     // Workaround: lưu file path theo tên người nhận
                     sessionHandler.SetMetadata($"pending_file_path", testFilePath);
                     await sessionHandler.SendAsync(RoutingKeys.FileRequest, fileReqPayload);
+                    await Task.Delay(500);
+
+                    // UC-08: Group Management
+                    if (testUser == "userA")
+                    {
+                        Console.WriteLine("Simulating Group Creation...");
+                        var groupCreatePayload = new GroupCreateRequestPayload
+                        {
+                            GroupName = "Avengers Team",
+                            InitialMembers = new System.Collections.Generic.List<string> { targetUser }
+                        };
+                        await sessionHandler.SendAsync(RoutingKeys.GroupCreateReq, groupCreatePayload);
+                        await Task.Delay(1000);
+                    }
+
+                    Console.WriteLine("Simulating Get Group List request...");
+                    await sessionHandler.SendAsync(RoutingKeys.GroupListReq, new { });
+                    await Task.Delay(500);
                 }
                 else
                 {
