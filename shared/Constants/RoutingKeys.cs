@@ -41,5 +41,20 @@ namespace LanChat.Shared.Constants
 
         // Server -> Client: Phản hồi danh sách người dùng online
         public const string UserListRes = "user.list.res";
+
+        // Client -> Server: Gửi tin nhắn
+        public const string ChatMsg = "chat.msg";
+
+        // Server -> Sender: Xác nhận đã lưu (ACK)
+        public const string ChatEcho = "chat.echo";
+
+        // Server -> Receiver: Nhận tin nhắn
+        public const string ChatReceive = "chat.recv";
+
+        // Client -> Server: Yêu cầu lấy lịch sử chat
+        public const string ChatHistoryReq = "chat.his.req";
+
+        // Server -> Client: Phản hồi lịch sử chat
+        public const string ChatHistoryRes = "chat.his.res";
     }
 }
