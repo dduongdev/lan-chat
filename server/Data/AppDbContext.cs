@@ -86,9 +86,9 @@ namespace LanChat.Server.Data
                     .HasForeignKey(m => m.GroupId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                entity.HasCheckConstraint(
+                entity.ToTable(t => t.HasCheckConstraint(
                     "CK_Message_ReceiverOrGroup",
-                    "((ReceiverId IS NULL) <> (GroupId IS NULL))");
+                    "((ReceiverId IS NULL) <> (GroupId IS NULL))"));
             });
 
             modelBuilder.Entity<FileTransfer>(entity =>
@@ -108,9 +108,9 @@ namespace LanChat.Server.Data
                     .HasForeignKey(ft => ft.ReceiverId)
                     .OnDelete(DeleteBehavior.Restrict);
 
-                entity.HasCheckConstraint(
+                entity.ToTable(t => t.HasCheckConstraint(
                     "CK_FileTransfer_Status",
-                    "Status IN ('Pending', 'Completed', 'Rejected', 'Failed')");
+                    "Status IN ('Pending', 'Completed', 'Rejected', 'Failed')"));
             });
         }
     }

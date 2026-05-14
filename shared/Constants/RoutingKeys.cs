@@ -17,5 +17,11 @@ namespace LanChat.Shared.Constants
 
         // Server -> Client: Thông báo Handshake thành công
         public const string HandshakeDone = "auth.handshake.done";
+
+        // Client -> Server: Yêu cầu đăng ký tài khoản
+        public const string AuthRegisterReq = "auth.register.req";
+
+        // Server -> Client: Phản hồi kết quả đăng ký
+        public const string AuthRegisterRes = "auth.register.res";
     }
 }
