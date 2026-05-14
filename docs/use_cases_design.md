@@ -12,7 +12,15 @@
 
 ---
 
-## Use Case ID
+hành công trong Database.
+### Failure
+- Database không bị thay đổi.
+
+## Business Rules
+- Password không được truyền dưới dạng Plaintext (truyền qua kênh mã hóa AES).
+- Username không chứa ký tự đặc biệt, tối thiểu 4 ký tự.
+
+## Priority## Use Case ID
 UC-01
 
 ## Use Case Name
@@ -107,15 +115,7 @@ Cho phép người dùng tạo tài khoản mới để tham gia hệ thống Ch
 
 ## Postconditions
 ### Success
-- Tài khoản mới được ghi nhận thành công trong Database.
-### Failure
-- Database không bị thay đổi.
-
-## Business Rules
-- Password không được truyền dưới dạng Plaintext (truyền qua kênh mã hóa AES).
-- Username không chứa ký tự đặc biệt, tối thiểu 4 ký tự.
-
-## Priority
+- Tài khoản mới được ghi nhận t
 High
 
 ---
