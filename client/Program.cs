@@ -6,6 +6,7 @@ using LanChat.Messaging;
 using LanChat.Client.Handlers;
 using LanChat.Client.Handlers.Auth;
 using LanChat.Client.Handlers.Presence;
+using LanChat.Client.Handlers.User;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
 
@@ -26,6 +27,7 @@ namespace LanChat.Client
             dispatcher.RegisterHandler(new ClientLoginResponseHandler());
             dispatcher.RegisterHandler(new ClientUserPresenceHandler(RoutingKeys.UserJoined));
             dispatcher.RegisterHandler(new ClientUserPresenceHandler(RoutingKeys.UserLeft));
+            dispatcher.RegisterHandler(new ClientUserListResponseHandler());
 
             try
             {
@@ -54,7 +56,15 @@ namespace LanChat.Client
                         Username = "testuser",
                         Password = "password123"
                     };
+                    sessionHandler.Username = "testuser";
                     await sessionHandler.SendAsync(RoutingKeys.AuthLoginReq, loginPayload);
+
+                    // Chờ đăng nhập hoàn tất
+                    await Task.Delay(1000);
+
+                    // Yêu cầu danh sách user online
+                    Console.WriteLine("Simulating Get Online Users request...");
+                    await sessionHandler.SendAsync(RoutingKeys.UserListReq, new { });
                 }
                 else
                 {

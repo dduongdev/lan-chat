@@ -64,7 +64,7 @@ namespace LanChat.Server.Handlers.Auth
 
                 // 4. Xử lý đăng ký mới
                 string passwordHash = _passwordHasher.HashPassword(request.Password);
-                var newUser = new User
+                var newUser = new Entities.User
                 {
                     Id = Guid.NewGuid(),
                     Username = request.Username,

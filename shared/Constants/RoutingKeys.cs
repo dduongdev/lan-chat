@@ -35,5 +35,11 @@ namespace LanChat.Shared.Constants
 
         // Server -> Client: Thông báo có người dùng offline
         public const string UserLeft = "user.left";
+
+        // Client -> Server: Yêu cầu danh sách người dùng online
+        public const string UserListReq = "user.list.req";
+
+        // Server -> Client: Phản hồi danh sách người dùng online
+        public const string UserListRes = "user.list.res";
     }
 }

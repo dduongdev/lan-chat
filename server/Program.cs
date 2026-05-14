@@ -9,6 +9,7 @@ using LanChat.Messaging;
 using LanChat.Server.Data;
 using LanChat.Server.Handlers;
 using LanChat.Server.Handlers.Auth;
+using LanChat.Server.Handlers.User;
 using LanChat.Server.Security;
 using LanChat.Server.State;
 using LanChat.Shared.Constants;
@@ -49,6 +50,7 @@ namespace LanChat.Server
             dispatcher.RegisterHandler(new ServerHandshakeResHandler());
             dispatcher.RegisterHandler(new ServerRegisterHandler(serviceProvider, passwordHasher));
             dispatcher.RegisterHandler(new ServerLoginHandler(serviceProvider, passwordHasher, sessionManager));
+            dispatcher.RegisterHandler(new ServerUserListHandler(sessionManager));
 
             var tcpListener = new TcpListener(IPAddress.Any, 8080);
             tcpListener.Start();

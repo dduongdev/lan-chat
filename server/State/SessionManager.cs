@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Linq;
 using LanChat.Messaging;
 
 namespace LanChat.Server.State
@@ -60,6 +61,13 @@ namespace LanChat.Server.State
             }
 
             return _sessions.TryGetValue(username, out session);
+        }
+
+        public IEnumerable<string> GetOnlineUsernames()
+        {
+            var usernames = _sessions.Keys.ToList();
+            usernames.Sort();
+            return usernames;
         }
 
         public IReadOnlyCollection<KeyValuePair<string, SessionHandler>> Snapshot()

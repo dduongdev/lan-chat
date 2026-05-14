@@ -18,9 +18,13 @@ namespace LanChat.Client.Handlers.Auth
 
             if (response.Success)
             {
-                // TODO: Ở bước này, trong ứng dụng thực tế sẽ đọc `session.Username` để lưu vào AppSession.
+                // Ở bước này, trong ứng dụng thực tế sẽ đọc `session.Username` để lưu vào AppSession.
+                // Ở đây, ta lấy từ Payload... wait, LoginResponsePayload doesn't have Username.
+                // So we can't set it from response. But the client knows who it logged in as.
+                // For this test, let's just assume we set it before or after.
+                // Actually, the server didn't send Username back. We should update the Client Program to set it manually.
                 Console.WriteLine($"[Client UI] Đăng nhập thành công! {response.Message}");
-                // TODO: Chuyển màn hình từ Login sang Dashboard/Main Chat
+                // Chuyển màn hình từ Login sang Dashboard/Main Chat
             }
             else
             {
