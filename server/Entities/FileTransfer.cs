@@ -8,6 +8,7 @@ namespace LanChat.Server.Entities
         public Guid SenderId { get; set; }
         public Guid ReceiverId { get; set; }
         public string FileName { get; set; } = string.Empty;
+        public long FileSize { get; set; }
         public string Status { get; set; } = string.Empty;
         public DateTime RequestedAt { get; set; }
 
@@ -15,3 +16,4 @@ namespace LanChat.Server.Entities
         public User Receiver { get; set; } = null!;
     }
 }
+

@@ -56,5 +56,20 @@ namespace LanChat.Shared.Constants
 
         // Server -> Client: Phản hồi lịch sử chat
         public const string ChatHistoryRes = "chat.his.res";
+
+        // Sender -> Server: Yêu cầu gửi file
+        public const string FileRequest = "file.req";
+
+        // Server -> Receiver: Lời mời nhận file
+        public const string FileOffer = "file.offer";
+
+        // Receiver -> Server: Phản hồi lời mời
+        public const string FileResponse = "file.res";
+
+        // Server -> Sender & Receiver: Bắt đầu truyền file
+        public const string FileStartTransfer = "file.start";
+
+        // Client -> Server: Báo cáo trạng thái hoàn tất/lỗi
+        public const string FileStatusUpdate = "file.status";
     }
 }

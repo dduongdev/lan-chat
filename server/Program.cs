@@ -10,9 +10,11 @@ using LanChat.Server.Data;
 using LanChat.Server.Handlers;
 using LanChat.Server.Handlers.Auth;
 using LanChat.Server.Handlers.Chat;
+using LanChat.Server.Handlers.File;
 using LanChat.Server.Handlers.User;
 using LanChat.Server.Security;
 using LanChat.Server.State;
+using LanChat.Server.Transfers;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
 
@@ -30,6 +32,7 @@ namespace LanChat.Server
                 options.UseSqlite("Data Source=lanchat.db"));
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<SessionManager>();
+            services.AddSingleton<FileTransferManager>();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -44,6 +47,7 @@ namespace LanChat.Server
             // Lấy các Singleton services
             var passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
             var sessionManager = serviceProvider.GetRequiredService<SessionManager>();
+            var fileTransferManager = serviceProvider.GetRequiredService<FileTransferManager>();
 
             // Khởi tạo Dispatcher và đăng ký Handler
             var dispatcher = new MessageDispatcher();
@@ -54,6 +58,9 @@ namespace LanChat.Server
             dispatcher.RegisterHandler(new ServerUserListHandler(sessionManager));
             dispatcher.RegisterHandler(new ServerChatHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerChatHistoryHandler(serviceProvider));
+            dispatcher.RegisterHandler(new ServerFileRequestHandler(serviceProvider, sessionManager));
+            dispatcher.RegisterHandler(new ServerFileResponseHandler(serviceProvider, sessionManager, fileTransferManager));
+            dispatcher.RegisterHandler(new ServerFileStatusHandler(serviceProvider));
 
             var tcpListener = new TcpListener(IPAddress.Any, 8080);
             tcpListener.Start();

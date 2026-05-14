@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
@@ -13,6 +14,11 @@ namespace LanChat.Messaging
         private readonly ISimpleTcpClient _client;
         private readonly MessageDispatcher _dispatcher;
         private bool _isRunning;
+
+        /// <summary>
+        /// Lưu trữ metadata tạm thời cho session (ví dụ: vai trò trong file transfer).
+        /// </summary>
+        private readonly ConcurrentDictionary<string, string> _metadata = new();
 
         public ISimpleTcpClient TcpClient => _client;
 
@@ -31,6 +37,12 @@ namespace LanChat.Messaging
             _client = client;
             _dispatcher = dispatcher;
         }
+
+        /// <summary>Lưu metadata key-value vào session.</summary>
+        public void SetMetadata(string key, string value) => _metadata[key] = value;
+
+        /// <summary>Lấy metadata theo key. Trả về null nếu không tìm thấy.</summary>
+        public string? GetMetadata(string key) => _metadata.TryGetValue(key, out var val) ? val : null;
 
         public async Task StartAsync(CancellationToken ct = default)
         {
@@ -87,4 +99,4 @@ namespace LanChat.Messaging
 
         public void Stop() => _isRunning = false;
     }
-}
+}

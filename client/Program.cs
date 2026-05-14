@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 using SimpleTcp;
@@ -6,6 +7,7 @@ using LanChat.Messaging;
 using LanChat.Client.Handlers;
 using LanChat.Client.Handlers.Auth;
 using LanChat.Client.Handlers.Chat;
+using LanChat.Client.Handlers.File;
 using LanChat.Client.Handlers.Presence;
 using LanChat.Client.Handlers.User;
 using LanChat.Shared.Constants;
@@ -35,6 +37,9 @@ namespace LanChat.Client
             dispatcher.RegisterHandler(new ClientChatEchoHandler());
             dispatcher.RegisterHandler(new ClientChatReceiveHandler());
             dispatcher.RegisterHandler(new ClientChatHistoryHandler());
+            dispatcher.RegisterHandler(new ClientFileOfferHandler());
+            dispatcher.RegisterHandler(new ClientFileStartHandler());
+            dispatcher.RegisterHandler(new ClientFileStatusHandler());
 
             try
             {
@@ -112,15 +117,37 @@ namespace LanChat.Client
                         Limit = 10
                     };
                     await sessionHandler.SendAsync(RoutingKeys.ChatHistoryReq, historyReq);
+                    await Task.Delay(500);
+
+                    // UC-06: File Transfer
+                    // Tạo file test để gửi
+                    string testFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"testfile_{testUser}.txt");
+                    System.IO.File.WriteAllText(testFilePath, $"This is a test file from {testUser}. Content: Hello World! 🎉\nTimestamp: {DateTime.UtcNow}");
+                    var fileInfo = new System.IO.FileInfo(testFilePath);
+
+                    Console.WriteLine($"Simulating File Transfer to {targetUser}...");
+                    var fileReqPayload = new FileRequestPayload
+                    {
+                        ReceiverUsername = targetUser,
+                        FileName = fileInfo.Name,
+                        FileSize = fileInfo.Length
+                    };
+
+                    // Lưu metadata: ghi đường dẫn file để Sender biết đọc từ đâu
+                    // Ta chưa biết FileTransferId, nhưng khi nhận FileStartPayload,
+                    // Sender sẽ dựa vào file_path metadata
+                    // Workaround: lưu file path theo tên người nhận
+                    sessionHandler.SetMetadata($"pending_file_path", testFilePath);
+                    await sessionHandler.SendAsync(RoutingKeys.FileRequest, fileReqPayload);
                 }
                 else
                 {
                     Console.WriteLine("Failed to encrypt channel.");
                 }
 
-                // Chờ thêm 5 giây để nhận các gói tin đến (như ChatReceive nếu có client khác gửi)
-                Console.WriteLine("Waiting for incoming messages (5s)...");
-                await Task.Delay(5000);
+                // Chờ thêm 15 giây để nhận các gói tin đến (File Offer, File Start, ChatReceive...)
+                Console.WriteLine("Waiting for incoming messages (15s)...");
+                await Task.Delay(15000);
             }
             catch (Exception ex)
             {
