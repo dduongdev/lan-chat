@@ -27,6 +27,11 @@ namespace LanChat.Messaging
         public bool IsEncrypted => Cipher != null;
 
         /// <summary>
+        /// Thời gian hoạt động cuối cùng của session (dùng cho heartbeat/timeout).
+        /// </summary>
+        public DateTime LastActivityTime { get; set; } = DateTime.UtcNow;
+
+        /// <summary>
         /// Định danh của người dùng đã được xác thực trong phiên làm việc này.
         /// Sẽ có giá trị sau khi Đăng nhập thành công.
         /// </summary>
@@ -53,6 +58,9 @@ namespace LanChat.Messaging
                 {
                     var envelope = await _client.ReceiveObjectAsync<MessageEnvelope>();
                     if (envelope == null) continue;
+
+                    // Cập nhật thời gian hoạt động
+                    LastActivityTime = DateTime.UtcNow;
 
                     if (IsEncrypted && envelope.Payload.ValueKind == JsonValueKind.String)
                     {

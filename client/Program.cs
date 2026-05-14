@@ -62,6 +62,21 @@ namespace LanChat.Client
 
                 if (sessionHandler.IsEncrypted)
                 {
+                    // Start Heartbeat Ping Task
+                    _ = Task.Run(async () =>
+                    {
+                        while (true)
+                        {
+                            await Task.Delay(30000); // 30 seconds
+                            try
+                            {
+                                await sessionHandler.SendAsync(RoutingKeys.SysPing, new { });
+                                Console.WriteLine("[Client] Sent Heartbeat Ping.");
+                            }
+                            catch { break; }
+                        }
+                    });
+
                     // UC-02: Registration
                     Console.WriteLine($"Simulating Registration for {testUser}...");
                     var regPayload = new RegisterRequestPayload { Username = testUser, Password = testPass };
@@ -148,6 +163,14 @@ namespace LanChat.Client
                 // Chờ thêm 15 giây để nhận các gói tin đến (File Offer, File Start, ChatReceive...)
                 Console.WriteLine("Waiting for incoming messages (15s)...");
                 await Task.Delay(15000);
+
+                // UC-07: Logout
+                if (!string.IsNullOrEmpty(sessionHandler.Username))
+                {
+                    Console.WriteLine($"Simulating Logout for {testUser}...");
+                    await sessionHandler.SendAsync(RoutingKeys.AuthLogoutReq, new { });
+                    await Task.Delay(1000); // Đợi server xử lý
+                }
             }
             catch (Exception ex)
             {

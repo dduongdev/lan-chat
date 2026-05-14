@@ -71,5 +71,11 @@ namespace LanChat.Shared.Constants
 
         // Client -> Server: Báo cáo trạng thái hoàn tất/lỗi
         public const string FileStatusUpdate = "file.status";
+
+        // Client -> Server: Yêu cầu đăng xuất
+        public const string AuthLogoutReq = "auth.logout.req";
+
+        // Client -> Server: Ping heartbeat
+        public const string SysPing = "sys.ping";
     }
 }

@@ -61,10 +61,32 @@ namespace LanChat.Server
             dispatcher.RegisterHandler(new ServerFileRequestHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerFileResponseHandler(serviceProvider, sessionManager, fileTransferManager));
             dispatcher.RegisterHandler(new ServerFileStatusHandler(serviceProvider));
+            dispatcher.RegisterHandler(new ServerLogoutHandler(sessionManager));
+            dispatcher.RegisterHandler(new ServerHeartbeatHandler());
 
             var tcpListener = new TcpListener(IPAddress.Any, 8080);
             tcpListener.Start();
             Console.WriteLine("Server is listening on port 8080...");
+
+            // SessionJanitor (Background Service)
+            _ = Task.Run(async () =>
+            {
+                while (true)
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(60)); // Chạy mỗi phút
+
+                    var now = DateTime.UtcNow;
+                    foreach (var sessionPair in sessionManager.Snapshot())
+                    {
+                        var session = sessionPair.Value;
+                        if ((now - session.LastActivityTime).TotalSeconds > 90)
+                        {
+                            Console.WriteLine($"[SessionJanitor] User '{session.Username}' timed out. Disconnecting...");
+                            await sessionManager.HandleDisconnectAsync(session);
+                        }
+                    }
+                }
+            });
 
             while (true)
             {
@@ -86,25 +108,9 @@ namespace LanChat.Server
                     }
                     finally
                     {
-                        // Khi session kết thúc, nếu user đã đăng nhập, ta xóa khỏi SessionManager và broadcast
-                        if (!string.IsNullOrEmpty(sessionHandler.Username))
-                        {
-                            if (sessionManager.TryRemove(sessionHandler.Username, out _))
-                            {
-                                Console.WriteLine($"[Server] User '{sessionHandler.Username}' disconnected.");
-                                
-                                // Broadcast UserLeft
-                                var leftPayload = new UserPresencePayload { Username = sessionHandler.Username };
-                                foreach (var otherSession in sessionManager.Snapshot())
-                                {
-                                    try
-                                    {
-                                        await otherSession.Value.SendAsync(RoutingKeys.UserLeft, leftPayload);
-                                    }
-                                    catch { /* Ignore */ }
-                                }
-                            }
-                        }
+                        // Khi vòng lặp của session kết thúc (do lỗi, ngắt kết nối, hay logout)
+                        // Luôn gọi đến phương thức dọn dẹp duy nhất.
+                        await sessionManager.HandleDisconnectAsync(sessionHandler);
                     }
                 });
             }

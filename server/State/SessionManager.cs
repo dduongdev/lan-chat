@@ -75,6 +75,43 @@ namespace LanChat.Server.State
             return new List<KeyValuePair<string, SessionHandler>>(_sessions);
         }
 
+        public async Task HandleDisconnectAsync(SessionHandler session)
+        {
+            if (session == null) return;
+
+            string? username = session.Username;
+
+            // 1. Kiểm tra session có Username không (nếu chưa login thì thôi)
+            if (!string.IsNullOrEmpty(username))
+            {
+                // 2. Xóa khỏi dictionary
+                if (_sessions.TryRemove(username, out _))
+                {
+                    Console.WriteLine($"[SessionManager] User '{username}' disconnected. Cleaning up...");
+
+                    // 3. Broadcast thông báo UserLeft
+                    var leftPayload = new LanChat.Shared.Payloads.UserPresencePayload { Username = username };
+                    
+                    // Lặp qua tất cả session online khác để gửi thông báo
+                    foreach (var otherSession in _sessions.Values)
+                    {
+                        try
+                        {
+                            await otherSession.SendAsync(LanChat.Shared.Constants.RoutingKeys.UserLeft, leftPayload);
+                        }
+                        catch { /* Bỏ qua nếu có lỗi gửi broadcast */ }
+                    }
+                }
+            }
+
+            // 4. Đóng kết nối TCP
+            try
+            {
+                session.TcpClient.Close();
+            }
+            catch { /* Ignore */ }
+        }
+
         public void Clear() => _sessions.Clear();
     }
 }
