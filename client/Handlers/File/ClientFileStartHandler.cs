@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanChat.Client.Services;
 using LanChat.Client.Transfers;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
@@ -9,10 +10,6 @@ using LanChat.Shared.Payloads;
 
 namespace LanChat.Client.Handlers.File
 {
-    /// <summary>
-    /// Xử lý thông báo bắt đầu truyền file từ Server.
-    /// Xác định vai trò (Sender/Receiver) và khởi động truyền/nhận file.
-    /// </summary>
     public class ClientFileStartHandler : IMessageHandler
     {
         public string RoutingKey => RoutingKeys.FileStartTransfer;
@@ -22,14 +19,12 @@ namespace LanChat.Client.Handlers.File
             var start = payload.Deserialize<FileStartPayload>();
             if (start == null) return;
 
-            Console.WriteLine($"[Client] FileStart received: Transfer={start.FileTransferId}, Host={start.TransferHost}, Port={start.TransferPort}");
+            ChatService.Instance.RaiseFileStartReceived(start.FileTransferId, start.TransferHost, start.TransferPort);
 
-            // Xác định vai trò dựa trên metadata đã lưu
             string? role = session.GetMetadata($"file_role_{start.FileTransferId}");
 
             if (role == "RECEIVER")
             {
-                // Nhận file
                 string? fileName = session.GetMetadata($"file_name_{start.FileTransferId}");
                 string? fileSizeStr = session.GetMetadata($"file_size_{start.FileTransferId}");
                 long fileSize = long.TryParse(fileSizeStr, out var fs) ? fs : 0;
@@ -46,8 +41,7 @@ namespace LanChat.Client.Handlers.File
                     try
                     {
                         await FileTransferClient.StartReceivingAsync(start.TransferHost, start.TransferPort, savePath, fileSize);
-
-                        // Báo Server hoàn tất
+                        ChatService.Instance.RaiseFileStatusReceived(start.FileTransferId, "Completed");
                         await session.SendAsync(RoutingKeys.FileStatusUpdate, new FileStatusPayload
                         {
                             FileTransferId = start.FileTransferId,
@@ -56,7 +50,7 @@ namespace LanChat.Client.Handlers.File
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[FileTransfer] Receive failed: {ex.Message}");
+                        ChatService.Instance.RaiseFileStatusReceived(start.FileTransferId, $"Failed: {ex.Message}");
                         await session.SendAsync(RoutingKeys.FileStatusUpdate, new FileStatusPayload
                         {
                             FileTransferId = start.FileTransferId,
@@ -67,26 +61,19 @@ namespace LanChat.Client.Handlers.File
             }
             else
             {
-                // Mình là Sender
                 string? filePath = session.GetMetadata($"file_path_{start.FileTransferId}");
-                // Fallback: lấy từ pending_file_path (do Client set trước khi gửi FileRequest)
                 if (string.IsNullOrEmpty(filePath))
-                {
                     filePath = session.GetMetadata("pending_file_path");
-                }
+
                 if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
-                {
-                    Console.WriteLine($"[FileTransfer] Source file not found: {filePath}");
                     return;
-                }
 
                 _ = Task.Run(async () =>
                 {
                     try
                     {
                         await FileTransferClient.StartSendingAsync(start.TransferHost, start.TransferPort, filePath);
-
-                        // Báo Server hoàn tất
+                        ChatService.Instance.RaiseFileStatusReceived(start.FileTransferId, "Completed");
                         await session.SendAsync(RoutingKeys.FileStatusUpdate, new FileStatusPayload
                         {
                             FileTransferId = start.FileTransferId,
@@ -95,7 +82,7 @@ namespace LanChat.Client.Handlers.File
                     }
                     catch (Exception ex)
                     {
-                        Console.WriteLine($"[FileTransfer] Send failed: {ex.Message}");
+                        ChatService.Instance.RaiseFileStatusReceived(start.FileTransferId, $"Failed: {ex.Message}");
                         await session.SendAsync(RoutingKeys.FileStatusUpdate, new FileStatusPayload
                         {
                             FileTransferId = start.FileTransferId,

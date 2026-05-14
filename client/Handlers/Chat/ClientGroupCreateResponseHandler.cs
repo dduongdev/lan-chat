@@ -1,9 +1,8 @@
-using System;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanChat.Client.Services;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
-using LanChat.Shared.Payloads;
 
 namespace LanChat.Client.Handlers.Chat
 {
@@ -13,20 +12,9 @@ namespace LanChat.Client.Handlers.Chat
 
         public Task HandleAsync(SessionHandler session, JsonElement payload)
         {
-            var res = payload.Deserialize<GroupCreateResponsePayload>();
+            var res = payload.Deserialize<LanChat.Shared.Payloads.GroupCreateResponsePayload>();
             if (res != null)
-            {
-                if (res.Success)
-                {
-                    Console.WriteLine($"[Client UI] Tạo nhóm '{res.GroupName}' thành công! GroupId: {res.GroupId}");
-                    // Lưu GroupId vào metadata để test các tính năng sau
-                    session.SetMetadata("last_created_group_id", res.GroupId.ToString());
-                }
-                else
-                {
-                    Console.WriteLine($"[Client UI] Tạo nhóm thất bại: {res.Message}");
-                }
-            }
+                ChatService.Instance.RaiseGroupCreateResponse(res);
             return Task.CompletedTask;
         }
     }

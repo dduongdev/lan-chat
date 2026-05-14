@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanChat.Client.Services;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
@@ -25,11 +26,11 @@ namespace LanChat.Client.Handlers.Presence
 
             if (_routingKey == RoutingKeys.UserJoined)
             {
-                Console.WriteLine($"[Client UI] User '{presence.Username}' has joined the chat.");
+                ChatService.Instance.RaiseUserJoined(presence.Username);
             }
             else if (_routingKey == RoutingKeys.UserLeft)
             {
-                Console.WriteLine($"[Client UI] User '{presence.Username}' has left the chat.");
+                ChatService.Instance.RaiseUserLeft(presence.Username);
             }
 
             return Task.CompletedTask;

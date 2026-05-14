@@ -1,0 +1,477 @@
+using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.Linq;
+using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Media;
+using LanChat.Client.Services;
+using LanChat.Shared.Payloads;
+using Microsoft.Win32;
+
+namespace LanChat.Client.Views
+{
+    // ── Data Models for UI ──
+    public class SidebarItem
+    {
+        public string Id { get; set; } = "";
+        public string DisplayName { get; set; } = "";
+        public string SubText { get; set; } = "";
+        public string Type { get; set; } = "USER"; // USER, GROUP, BROADCAST
+        public Guid? GroupId { get; set; }
+        public List<string>? Members { get; set; }
+    }
+
+    public class MessageBubble
+    {
+        public string SenderLabel { get; set; } = "";
+        public string Content { get; set; } = "";
+        public string TimeText { get; set; } = "";
+        public HorizontalAlignment Alignment { get; set; } = HorizontalAlignment.Left;
+        public Brush BubbleColor { get; set; } = new SolidColorBrush(Color.FromRgb(224, 224, 224));
+        public Visibility ShowSender { get; set; } = Visibility.Visible;
+        public Visibility ShowTimeRight { get; set; } = Visibility.Collapsed;
+    }
+
+    public partial class MainWindow : Window
+    {
+        private readonly ObservableCollection<SidebarItem> _onlineUsers = new();
+        private readonly ObservableCollection<SidebarItem> _groups = new();
+        private readonly ObservableCollection<MessageBubble> _messages = new();
+
+        private string? _currentChatType; // PRIVATE, BROADCAST, GROUP
+        private string? _currentChatTarget; // username or groupId
+
+        private readonly Brush _sentBubble;
+        private readonly Brush _receivedBubble;
+
+        public MainWindow()
+        {
+            InitializeComponent();
+
+            _sentBubble = (Brush)FindResource("SentBubbleBrush");
+            _receivedBubble = (Brush)FindResource("ReceivedBubbleBrush");
+
+            UserListBox.ItemsSource = _onlineUsers;
+            GroupListBox.ItemsSource = _groups;
+            MessagesPanel.ItemsSource = _messages;
+
+            SubscribeEvents();
+            LoadInitialData();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Event Subscriptions
+        // ═══════════════════════════════════════════════════════════════
+
+        private void SubscribeEvents()
+        {
+            var svc = ChatService.Instance;
+
+            // User Presence
+            svc.OnUserListReceived += users => Dispatcher.Invoke(() =>
+            {
+                _onlineUsers.Clear();
+                foreach (var u in users)
+                    _onlineUsers.Add(new SidebarItem { Id = u, DisplayName = u, Type = "USER" });
+                UpdateOnlineCount();
+            });
+
+            svc.OnUserJoined += username => Dispatcher.Invoke(() =>
+            {
+                if (username != svc.CurrentUsername && !_onlineUsers.Any(u => u.Id == username))
+                    _onlineUsers.Add(new SidebarItem { Id = username, DisplayName = username, Type = "USER" });
+                UpdateOnlineCount();
+            });
+
+            svc.OnUserLeft += username => Dispatcher.Invoke(() =>
+            {
+                var item = _onlineUsers.FirstOrDefault(u => u.Id == username);
+                if (item != null) _onlineUsers.Remove(item);
+                UpdateOnlineCount();
+            });
+
+            // Chat Messages
+            svc.OnChatMessageReceived += msg => Dispatcher.Invoke(() =>
+            {
+                // Nếu đang mở cuộc hội thoại tương ứng -> thêm tin nhắn vào
+                bool isRelevant = (_currentChatType == "PRIVATE" && _currentChatTarget == msg.Sender)
+                               || _currentChatType == "BROADCAST"
+                               || (_currentChatType == "GROUP" && _currentChatTarget != null);
+
+                if (isRelevant)
+                {
+                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, false);
+                }
+            });
+
+            svc.OnChatEchoReceived += echo => Dispatcher.Invoke(() =>
+            {
+                // ACK - tin nhắn đã gửi thành công (không cần hiển thị gì thêm)
+            });
+
+            svc.OnChatHistoryWithTarget += (targetId, messages) => Dispatcher.Invoke(() =>
+            {
+                _messages.Clear();
+                foreach (var msg in messages)
+                {
+                    bool isMine = msg.Sender == svc.CurrentUsername;
+                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, isMine);
+                }
+                ScrollToBottom();
+            });
+
+            // Group Management
+            svc.OnGroupListReceived += groups => Dispatcher.Invoke(() =>
+            {
+                _groups.Clear();
+                foreach (var g in groups)
+                {
+                    _groups.Add(new SidebarItem
+                    {
+                        Id = g.GroupId.ToString(),
+                        DisplayName = g.GroupName,
+                        SubText = $"{g.Members.Count} thành viên",
+                        Type = "GROUP",
+                        GroupId = g.GroupId,
+                        Members = g.Members
+                    });
+                }
+            });
+
+            svc.OnGroupInviteReceived += group => Dispatcher.Invoke(() =>
+            {
+                if (!_groups.Any(g => g.Id == group.GroupId.ToString()))
+                {
+                    _groups.Add(new SidebarItem
+                    {
+                        Id = group.GroupId.ToString(),
+                        DisplayName = group.GroupName,
+                        SubText = $"{group.Members.Count} thành viên",
+                        Type = "GROUP",
+                        GroupId = group.GroupId,
+                        Members = group.Members
+                    });
+                }
+                MessageBox.Show($"Bạn đã được thêm vào nhóm \"{group.GroupName}\"", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+            });
+
+            svc.OnGroupCreateResponse += res => Dispatcher.Invoke(() =>
+            {
+                if (res.Success)
+                    svc.RequestGroupListAsync(); // Reload group list
+                else
+                    MessageBox.Show($"Tạo nhóm thất bại: {res.Message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Warning);
+            });
+
+            svc.OnGroupMemberAdded += (groupId, newMembers) => Dispatcher.Invoke(() =>
+            {
+                var group = _groups.FirstOrDefault(g => g.Id == groupId.ToString());
+                if (group?.Members != null)
+                {
+                    group.Members.AddRange(newMembers);
+                    group.SubText = $"{group.Members.Count} thành viên";
+                }
+                if (_currentChatType == "GROUP" && _currentChatTarget == groupId.ToString())
+                    ChatSubHeaderText.Text = $"{group?.Members?.Count ?? 0} thành viên";
+            });
+
+            svc.OnGroupMemberLeft += (groupId, username) => Dispatcher.Invoke(() =>
+            {
+                var group = _groups.FirstOrDefault(g => g.Id == groupId.ToString());
+                if (group?.Members != null)
+                {
+                    group.Members.Remove(username);
+                    group.SubText = $"{group.Members.Count} thành viên";
+                }
+                if (_currentChatType == "GROUP" && _currentChatTarget == groupId.ToString())
+                    ChatSubHeaderText.Text = $"{group?.Members?.Count ?? 0} thành viên";
+            });
+
+            svc.OnGroupLeaveResponse += (success, message) => Dispatcher.Invoke(() =>
+            {
+                if (success)
+                {
+                    // Xóa nhóm khỏi sidebar
+                    var group = _groups.FirstOrDefault(g => g.Id == _currentChatTarget);
+                    if (group != null) _groups.Remove(group);
+                    ClearChatArea();
+                }
+                else
+                {
+                    MessageBox.Show($"Rời nhóm thất bại: {message}", "Lỗi", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            });
+
+            // File Transfer
+            svc.OnFileOfferReceived += offer => Dispatcher.Invoke(() =>
+            {
+                double sizeMB = offer.FileSize / (1024.0 * 1024.0);
+                var result = MessageBox.Show(
+                    $"📁 {offer.SenderUsername} muốn gửi file:\n\n" +
+                    $"Tên file: {offer.FileName}\n" +
+                    $"Kích thước: {sizeMB:F2} MB\n\n" +
+                    $"Bạn có muốn nhận không?",
+                    "Nhận file", MessageBoxButton.YesNo, MessageBoxImage.Question);
+
+                _ = svc.RespondToFileOfferAsync(offer.FileTransferId, result == MessageBoxResult.Yes);
+            });
+
+            svc.OnFileStatusReceived += (transferId, status) => Dispatcher.Invoke(() =>
+            {
+                if (status == "Completed")
+                    AddSystemMessage("✅ Truyền file hoàn tất!");
+                else
+                    AddSystemMessage($"❌ Truyền file: {status}");
+            });
+
+            // Disconnected
+            svc.OnDisconnected += () => Dispatcher.Invoke(() =>
+            {
+                MessageBox.Show("Đã mất kết nối đến server.", "Ngắt kết nối", MessageBoxButton.OK, MessageBoxImage.Warning);
+                var login = new LoginWindow();
+                login.Show();
+                this.Close();
+            });
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Initial Data Load
+        // ═══════════════════════════════════════════════════════════════
+
+        private async void LoadInitialData()
+        {
+            ChatService.Instance.StartHeartbeat();
+            await ChatService.Instance.RequestUserListAsync();
+            await ChatService.Instance.RequestGroupListAsync();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Sidebar Selection Handlers
+        // ═══════════════════════════════════════════════════════════════
+
+        private void BroadcastButton_Click(object sender, RoutedEventArgs e)
+        {
+            UserListBox.SelectedItem = null;
+            GroupListBox.SelectedItem = null;
+            SwitchChat("BROADCAST", "ALL", "#general", "AES Encrypted");
+        }
+
+        private void UserListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (UserListBox.SelectedItem is SidebarItem item)
+            {
+                GroupListBox.SelectedItem = null;
+                SwitchChat("PRIVATE", item.Id, item.DisplayName, "AES Encrypted");
+                SendFileButton.Visibility = Visibility.Visible;
+                AddMemberButton.Visibility = Visibility.Collapsed;
+                LeaveGroupButton.Visibility = Visibility.Collapsed;
+            }
+        }
+
+        private void GroupListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (GroupListBox.SelectedItem is SidebarItem item)
+            {
+                UserListBox.SelectedItem = null;
+                SwitchChat("GROUP", item.Id, $"#{item.DisplayName}", $"AES Encrypted · {item.SubText}");
+                SendFileButton.Visibility = Visibility.Collapsed;
+                AddMemberButton.Visibility = Visibility.Visible;
+                LeaveGroupButton.Visibility = Visibility.Visible;
+            }
+        }
+
+        private async void SwitchChat(string type, string target, string header, string subHeader)
+        {
+            _currentChatType = type;
+            _currentChatTarget = target;
+            ChatHeaderText.Text = header;
+            ChatSubHeaderText.Text = subHeader;
+            EmptyStatePanel.Visibility = Visibility.Collapsed;
+            MessageInputBox.IsEnabled = true;
+            SendButton.IsEnabled = true;
+            _messages.Clear();
+
+            // Load history
+            await ChatService.Instance.RequestChatHistoryAsync(target, 50);
+        }
+
+        private void ClearChatArea()
+        {
+            _currentChatType = null;
+            _currentChatTarget = null;
+            ChatHeaderText.Text = "Chọn một cuộc hội thoại";
+            ChatSubHeaderText.Text = "";
+            EmptyStatePanel.Visibility = Visibility.Visible;
+            MessageInputBox.IsEnabled = false;
+            SendButton.IsEnabled = false;
+            SendFileButton.Visibility = Visibility.Collapsed;
+            AddMemberButton.Visibility = Visibility.Collapsed;
+            LeaveGroupButton.Visibility = Visibility.Collapsed;
+            _messages.Clear();
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Send Message
+        // ═══════════════════════════════════════════════════════════════
+
+        private async void SendButton_Click(object sender, RoutedEventArgs e) => await SendCurrentMessage();
+
+        private async void MessageInputBox_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+        {
+            if (e.Key == System.Windows.Input.Key.Enter)
+                await SendCurrentMessage();
+        }
+
+        private async System.Threading.Tasks.Task SendCurrentMessage()
+        {
+            string text = MessageInputBox.Text.Trim();
+            if (string.IsNullOrEmpty(text) || _currentChatType == null) return;
+
+            MessageInputBox.Text = "";
+
+            switch (_currentChatType)
+            {
+                case "PRIVATE":
+                    await ChatService.Instance.SendPrivateMessageAsync(_currentChatTarget!, text);
+                    break;
+                case "BROADCAST":
+                    await ChatService.Instance.SendBroadcastMessageAsync(text);
+                    break;
+                case "GROUP":
+                    if (Guid.TryParse(_currentChatTarget, out var gid))
+                        await ChatService.Instance.SendGroupMessageAsync(gid, text);
+                    break;
+            }
+
+            // Thêm tin nhắn của mình vào UI ngay lập tức
+            AddMessageBubble(ChatService.Instance.CurrentUsername ?? "Me", text, DateTime.UtcNow, true);
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Action Buttons
+        // ═══════════════════════════════════════════════════════════════
+
+        private async void LogoutButton_Click(object sender, RoutedEventArgs e)
+        {
+            var result = MessageBox.Show("Bạn muốn đăng xuất?", "Xác nhận", MessageBoxButton.YesNo, MessageBoxImage.Question);
+            if (result == MessageBoxResult.Yes)
+            {
+                await ChatService.Instance.LogoutAsync();
+                var login = new LoginWindow();
+                login.Show();
+                this.Close();
+            }
+        }
+
+        private void SendFileButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentChatType != "PRIVATE" || _currentChatTarget == null) return;
+
+            var dialog = new OpenFileDialog
+            {
+                Title = "Chọn file để gửi",
+                Filter = "Tất cả file (*.*)|*.*"
+            };
+
+            if (dialog.ShowDialog() == true)
+            {
+                _ = ChatService.Instance.SendFileRequestAsync(_currentChatTarget, dialog.FileName);
+                AddSystemMessage($"📤 Đang gửi file: {System.IO.Path.GetFileName(dialog.FileName)}...");
+            }
+        }
+
+        private void CreateGroupButton_Click(object sender, RoutedEventArgs e)
+        {
+            var dialog = new CreateGroupDialog(_onlineUsers.Select(u => u.DisplayName).ToList());
+            dialog.Owner = this;
+            if (dialog.ShowDialog() == true)
+            {
+                _ = ChatService.Instance.CreateGroupAsync(dialog.GroupName, dialog.SelectedMembers);
+            }
+        }
+
+        private void AddMemberButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentChatType != "GROUP" || _currentChatTarget == null) return;
+
+            var currentGroup = _groups.FirstOrDefault(g => g.Id == _currentChatTarget);
+            var existingMembers = currentGroup?.Members ?? new List<string>();
+
+            // Hiển thị danh sách user chưa có trong nhóm
+            var availableUsers = _onlineUsers
+                .Select(u => u.DisplayName)
+                .Where(u => !existingMembers.Contains(u))
+                .ToList();
+
+            if (!availableUsers.Any())
+            {
+                MessageBox.Show("Không có người dùng online nào để thêm.", "Thông báo", MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var dialog = new AddMemberDialog(availableUsers);
+            dialog.Owner = this;
+            if (dialog.ShowDialog() == true && dialog.SelectedMembers.Any())
+            {
+                if (Guid.TryParse(_currentChatTarget, out var gid))
+                    _ = ChatService.Instance.AddGroupMembersAsync(gid, dialog.SelectedMembers);
+            }
+        }
+
+        private async void LeaveGroupButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentChatType != "GROUP" || _currentChatTarget == null) return;
+
+            var result = MessageBox.Show("Bạn chắc chắn muốn rời nhóm?", "Xác nhận", MessageBoxButton.YesNo, MessageBoxImage.Warning);
+            if (result == MessageBoxResult.Yes)
+            {
+                if (Guid.TryParse(_currentChatTarget, out var gid))
+                    await ChatService.Instance.LeaveGroupAsync(gid);
+            }
+        }
+
+        // ═══════════════════════════════════════════════════════════════
+        // Helper Methods
+        // ═══════════════════════════════════════════════════════════════
+
+        private void AddMessageBubble(string sender, string content, DateTime sentAt, bool isMine)
+        {
+            _messages.Add(new MessageBubble
+            {
+                SenderLabel = sender,
+                Content = content,
+                TimeText = sentAt.ToLocalTime().ToString("h:mm tt"),
+                Alignment = isMine ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+                BubbleColor = isMine ? _sentBubble : _receivedBubble,
+                ShowSender = isMine ? Visibility.Collapsed : Visibility.Visible,
+                ShowTimeRight = isMine ? Visibility.Visible : Visibility.Collapsed
+            });
+            ScrollToBottom();
+        }
+
+        private void AddSystemMessage(string text)
+        {
+            _messages.Add(new MessageBubble
+            {
+                SenderLabel = "",
+                Content = text,
+                TimeText = DateTime.Now.ToString("HH:mm"),
+                Alignment = HorizontalAlignment.Center,
+                BubbleColor = new SolidColorBrush(Colors.Transparent),
+                ShowSender = Visibility.Collapsed
+            });
+            ScrollToBottom();
+        }
+
+        private void ScrollToBottom()
+        {
+            MessageScrollViewer.ScrollToEnd();
+        }
+
+        private void UpdateOnlineCount()
+        {
+            OnlineCountText.Text = $"Online Users: {_onlineUsers.Count}";
+        }
+    }
+}

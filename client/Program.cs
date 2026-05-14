@@ -17,7 +17,7 @@ namespace LanChat.Client
 {
     class Program
     {
-        static async Task Main(string[] args)
+        public static async Task RunConsoleTestAsync(string[] args)
         {
             string testUser = args.Length > 0 ? args[0] : "testuser_" + Guid.NewGuid().ToString().Substring(0, 4);
             string testPass = args.Length > 1 ? args[1] : "password123";
