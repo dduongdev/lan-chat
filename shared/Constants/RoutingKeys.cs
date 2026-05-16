@@ -39,8 +39,14 @@ namespace LanChat.Shared.Constants
         // Client -> Server: Yêu cầu danh sách người dùng online
         public const string UserListReq = "user.list.req";
 
-        // Server -> Client: Phản hồi danh sách người dùng online
+        // Server -> Client: Phản hồi danh sách online
         public const string UserListRes = "user.list.res";
+
+        // Client -> Server: Yêu cầu danh sách recent chats
+        public const string RecentChatsReq = "user.recentchats.req";
+
+        // Server -> Client: Phản hồi danh sách recent chats
+        public const string RecentChatsRes = "user.recentchats.res";
 
         // Client -> Server: Gửi tin nhắn
         public const string ChatMsg = "chat.msg";

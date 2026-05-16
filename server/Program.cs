@@ -58,6 +58,7 @@ namespace LanChat.Server
             dispatcher.RegisterHandler(new ServerRegisterHandler(serviceProvider, passwordHasher));
             dispatcher.RegisterHandler(new ServerLoginHandler(serviceProvider, passwordHasher, sessionManager));
             dispatcher.RegisterHandler(new ServerUserListHandler(sessionManager));
+            dispatcher.RegisterHandler(new ServerRecentChatsHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerChatHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerChatHistoryHandler(serviceProvider));
 

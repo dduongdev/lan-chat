@@ -87,8 +87,65 @@
                     </ListBox.ItemContainerStyle>
                 </ListBox>
 
-                <!-- Direct Messages Header -->
-                <TextBlock DockPanel.Dock="Top" Text="Direct Messages" FontSize="12" FontWeight="Bold"
+                <!-- Recent Chats Header -->
+                <TextBlock DockPanel.Dock="Top" Text="Recent Chats" FontSize="12" FontWeight="Bold"
+                           Foreground="{StaticResource SidebarTextSecondaryBrush}" 
+                           Margin="20,18,20,6"/>
+
+                <!-- Recent chats list -->
+                <ListBox x:Name="RecentChatsListBox" 
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         SelectionChanged="UserListBox_SelectionChanged"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         DockPanel.Dock="Top">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="20,5">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="Medium"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource SidebarTextSecondaryBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource SuccessBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="0">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#1A5A4C"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#15504A"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Online Users Header -->
+                <TextBlock DockPanel.Dock="Top" Text="Other Online Users" FontSize="12" FontWeight="Bold"
                            Foreground="{StaticResource SidebarTextSecondaryBrush}" 
                            Margin="20,18,20,6"/>
 
@@ -103,8 +160,18 @@
                             <DockPanel Margin="20,5">
                                 <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="Medium"
                                            Foreground="White" VerticalAlignment="Center"/>
-                                <Ellipse Width="8" Height="8" Fill="{StaticResource SuccessBrush}" 
-                                         VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0"/>
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource SidebarTextSecondaryBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource SuccessBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
                             </DockPanel>
                         </DataTemplate>
                     </ListBox.ItemTemplate>
@@ -201,7 +268,7 @@
                                         Background="{Binding BubbleColor}"
                                         HorizontalAlignment="{Binding Alignment}"
                                         Cursor="{Binding MessageCursor}"
-                                        MouseLeftButtonDown="MessageBubble_MouseLeftButtonDown"
+                                        MouseLeftButtonUp="MessageBubble_MouseLeftButtonUp"
                                         Tag="{Binding}">
                                     <TextBlock Text="{Binding Content}" FontSize="13" TextWrapping="Wrap"
                                                Foreground="{StaticResource TextPrimaryBrush}"/>

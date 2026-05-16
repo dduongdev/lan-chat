@@ -41,6 +41,7 @@ namespace LanChat.Client.Services
         public event Action<string>? OnUserJoined;
         public event Action<string>? OnUserLeft;
         public event Action<List<string>>? OnUserListReceived;
+        public event Action<List<RecentChatDto>>? OnRecentChatsReceived;
 
         // Chat
         public event Action<ChatMessageDto>? OnChatMessageReceived;
@@ -79,6 +80,7 @@ namespace LanChat.Client.Services
             OnUserJoined = null;
             OnUserLeft = null;
             OnUserListReceived = null;
+            OnRecentChatsReceived = null;
             OnChatMessageReceived = null;
             OnChatEchoReceived = null;
             OnChatHistoryReceived = null;
@@ -194,6 +196,12 @@ namespace LanChat.Client.Services
         {
             if (_session == null) return;
             await _session.SendAsync(RoutingKeys.UserListReq, new { });
+        }
+
+        public async Task RequestRecentChatsAsync()
+        {
+            if (_session == null) return;
+            await _session.SendAsync(RoutingKeys.RecentChatsReq, new RecentChatsRequestPayload());
         }
 
         // ── Chat ────────────────────────────────────────────────────────
@@ -360,6 +368,7 @@ namespace LanChat.Client.Services
         public void RaiseUserJoined(string username) => OnUserJoined?.Invoke(username);
         public void RaiseUserLeft(string username) => OnUserLeft?.Invoke(username);
         public void RaiseUserListReceived(List<string> users) => OnUserListReceived?.Invoke(users);
+        public void RaiseRecentChatsReceived(List<RecentChatDto> chats) => OnRecentChatsReceived?.Invoke(chats);
         public void RaiseChatMessageReceived(ChatMessageDto msg) => OnChatMessageReceived?.Invoke(msg);
         public void RaiseChatEchoReceived(ChatEchoPayload echo) => OnChatEchoReceived?.Invoke(echo);
         public void RaiseChatHistoryReceived(List<ChatMessageDto> messages)
@@ -400,6 +409,7 @@ namespace LanChat.Client.Services
             dispatcher.RegisterHandler(new Handlers.Presence.ClientUserPresenceHandler(RoutingKeys.UserJoined));
             dispatcher.RegisterHandler(new Handlers.Presence.ClientUserPresenceHandler(RoutingKeys.UserLeft));
             dispatcher.RegisterHandler(new Handlers.User.ClientUserListResponseHandler());
+            dispatcher.RegisterHandler(new Handlers.User.ClientRecentChatsResponseHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientChatEchoHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientChatReceiveHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientChatHistoryHandler());

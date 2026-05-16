@@ -12,14 +12,30 @@ using Microsoft.Win32;
 namespace LanChat.Client.Views
 {
     // ── Data Models for UI ──
-    public class SidebarItem
+    public class SidebarItem : System.ComponentModel.INotifyPropertyChanged
     {
+        private bool _isOnline;
         public string Id { get; set; } = "";
         public string DisplayName { get; set; } = "";
         public string SubText { get; set; } = "";
         public string Type { get; set; } = "USER"; // USER, GROUP, BROADCAST
         public Guid? GroupId { get; set; }
         public List<string>? Members { get; set; }
+
+        public bool IsOnline
+        {
+            get => _isOnline;
+            set
+            {
+                if (_isOnline != value)
+                {
+                    _isOnline = value;
+                    PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsOnline)));
+                }
+            }
+        }
+
+        public event System.ComponentModel.PropertyChangedEventHandler? PropertyChanged;
     }
 
     public class MessageBubble
@@ -40,7 +56,8 @@ namespace LanChat.Client.Views
 
     public partial class MainWindow : Window
     {
-        private readonly ObservableCollection<SidebarItem> _onlineUsers = new();
+        private readonly ObservableCollection<SidebarItem> _recentChats = new();
+        private readonly ObservableCollection<SidebarItem> _otherOnlineUsers = new();
         private readonly ObservableCollection<SidebarItem> _groups = new();
         private readonly ObservableCollection<MessageBubble> _messages = new();
 
@@ -58,7 +75,8 @@ namespace LanChat.Client.Views
             _sentBubble = (Brush)FindResource("SentBubbleBrush");
             _receivedBubble = (Brush)FindResource("ReceivedBubbleBrush");
 
-            UserListBox.ItemsSource = _onlineUsers;
+            RecentChatsListBox.ItemsSource = _recentChats;
+            UserListBox.ItemsSource = _otherOnlineUsers;
             GroupListBox.ItemsSource = _groups;
             MessagesPanel.ItemsSource = _messages;
 
@@ -77,29 +95,74 @@ namespace LanChat.Client.Views
             // User Presence
             svc.OnUserListReceived += users => Dispatcher.Invoke(() =>
             {
-                _onlineUsers.Clear();
+                _otherOnlineUsers.Clear();
                 foreach (var u in users)
-                    _onlineUsers.Add(new SidebarItem { Id = u, DisplayName = u, Type = "USER" });
+                {
+                    if (u == svc.CurrentUsername) continue;
+                    var recent = _recentChats.FirstOrDefault(r => r.Id == u);
+                    if (recent != null)
+                    {
+                        recent.IsOnline = true;
+                    }
+                    else
+                    {
+                        _otherOnlineUsers.Add(new SidebarItem { Id = u, DisplayName = u, Type = "USER", IsOnline = true });
+                    }
+                }
+                UpdateOnlineCount();
+            });
+
+            svc.OnRecentChatsReceived += chats => Dispatcher.Invoke(() =>
+            {
+                _recentChats.Clear();
+                foreach (var c in chats)
+                {
+                    _recentChats.Add(new SidebarItem { Id = c.Username, DisplayName = c.DisplayName, Type = "USER", IsOnline = c.IsOnline });
+                    var other = _otherOnlineUsers.FirstOrDefault(o => o.Id == c.Username);
+                    if (other != null) _otherOnlineUsers.Remove(other);
+                }
                 UpdateOnlineCount();
             });
 
             svc.OnUserJoined += username => Dispatcher.Invoke(() =>
             {
-                if (username != svc.CurrentUsername && !_onlineUsers.Any(u => u.Id == username))
-                    _onlineUsers.Add(new SidebarItem { Id = username, DisplayName = username, Type = "USER" });
+                if (username == svc.CurrentUsername) return;
+                var recent = _recentChats.FirstOrDefault(r => r.Id == username);
+                if (recent != null)
+                {
+                    recent.IsOnline = true;
+                }
+                else if (!_otherOnlineUsers.Any(u => u.Id == username))
+                {
+                    _otherOnlineUsers.Add(new SidebarItem { Id = username, DisplayName = username, Type = "USER", IsOnline = true });
+                }
                 UpdateOnlineCount();
             });
 
             svc.OnUserLeft += username => Dispatcher.Invoke(() =>
             {
-                var item = _onlineUsers.FirstOrDefault(u => u.Id == username);
-                if (item != null) _onlineUsers.Remove(item);
+                var recent = _recentChats.FirstOrDefault(r => r.Id == username);
+                if (recent != null) recent.IsOnline = false;
+                
+                var item = _otherOnlineUsers.FirstOrDefault(u => u.Id == username);
+                if (item != null) _otherOnlineUsers.Remove(item);
+                
                 UpdateOnlineCount();
             });
 
             // Chat Messages
             svc.OnChatMessageReceived += msg => Dispatcher.Invoke(() =>
             {
+                if (msg.TargetType == "PRIVATE")
+                {
+                    if (!_recentChats.Any(r => r.Id == msg.Sender))
+                    {
+                        var other = _otherOnlineUsers.FirstOrDefault(o => o.Id == msg.Sender);
+                        if (other != null) _otherOnlineUsers.Remove(other);
+                        _recentChats.Add(new SidebarItem { Id = msg.Sender, DisplayName = msg.Sender, Type = "USER", IsOnline = true });
+                    }
+                }
+
                 // Nếu đang mở cuộc hội thoại tương ứng -> thêm tin nhắn vào
                 bool isRelevant = false;
                 if (msg.TargetType == "PRIVATE" && _currentChatType == "PRIVATE" && _currentChatTarget == msg.Sender) isRelevant = true;
@@ -247,6 +310,7 @@ namespace LanChat.Client.Views
         private async void LoadInitialData()
         {
             ChatService.Instance.StartHeartbeat();
+            await ChatService.Instance.RequestRecentChatsAsync();
             await ChatService.Instance.RequestUserListAsync();
             await ChatService.Instance.RequestGroupListAsync();
         }
@@ -257,6 +321,7 @@ namespace LanChat.Client.Views
 
         private void BroadcastButton_Click(object sender, RoutedEventArgs e)
         {
+            RecentChatsListBox.SelectedItem = null;
             UserListBox.SelectedItem = null;
             GroupListBox.SelectedItem = null;
             SwitchChat("BROADCAST", "ALL", "#general", "AES Encrypted");
@@ -264,8 +329,12 @@ namespace LanChat.Client.Views
 
         private void UserListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            if (UserListBox.SelectedItem is SidebarItem selectedUser)
+            var listBox = sender as ListBox;
+            if (listBox?.SelectedItem is SidebarItem selectedUser)
             {
+                if (listBox == UserListBox) RecentChatsListBox.SelectedItem = null;
+                else if (listBox == RecentChatsListBox) UserListBox.SelectedItem = null;
+
                 GroupListBox.SelectedItem = null;
                 SwitchChat("PRIVATE", selectedUser.Id, selectedUser.DisplayName, "Trò chuyện riêng tư");
                 SendFileButton.Visibility = Visibility.Visible;
@@ -278,6 +347,7 @@ namespace LanChat.Client.Views
         {
             if (GroupListBox.SelectedItem is SidebarItem item)
             {
+                RecentChatsListBox.SelectedItem = null;
                 UserListBox.SelectedItem = null;
                 SwitchChat("GROUP", item.Id, $"#{item.DisplayName}", $"AES Encrypted · {item.SubText}");
                 SendFileButton.Visibility = Visibility.Visible;
@@ -338,6 +408,15 @@ namespace LanChat.Client.Views
             switch (_currentChatType)
             {
                 case "PRIVATE":
+                    if (!_recentChats.Any(r => r.Id == _currentChatTarget))
+                    {
+                        var other = _otherOnlineUsers.FirstOrDefault(o => o.Id == _currentChatTarget);
+                        if (other != null) 
+                        {
+                            _otherOnlineUsers.Remove(other);
+                            _recentChats.Add(other);
+                        }
+                    }
                     await ChatService.Instance.SendPrivateMessageAsync(_currentChatTarget!, text);
                     break;
                 case "BROADCAST":
@@ -400,7 +479,12 @@ namespace LanChat.Client.Views
 
         private void CreateGroupButton_Click(object sender, RoutedEventArgs e)
         {
-            var dialog = new CreateGroupDialog(_onlineUsers.Select(u => u.DisplayName).ToList());
+            var combinedUsers = _recentChats.Select(u => u.DisplayName)
+                .Concat(_otherOnlineUsers.Select(u => u.DisplayName))
+                .Distinct()
+                .ToList();
+                
+            var dialog = new CreateGroupDialog(combinedUsers);
             dialog.Owner = this;
             if (dialog.ShowDialog() == true)
             {
@@ -416,8 +500,9 @@ namespace LanChat.Client.Views
             var existingMembers = currentGroup?.Members ?? new List<string>();
 
             // Hiển thị danh sách user chưa có trong nhóm
-            var availableUsers = _onlineUsers
-                .Select(u => u.DisplayName)
+            var availableUsers = _recentChats.Select(u => u.DisplayName)
+                .Concat(_otherOnlineUsers.Select(u => u.DisplayName))
+                .Distinct()
                 .Where(u => !existingMembers.Contains(u))
                 .ToList();
 
@@ -471,7 +556,7 @@ namespace LanChat.Client.Views
             ScrollToBottom();
         }
 
-        private async void MessageBubble_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void MessageBubble_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (sender is Border border && border.Tag is MessageBubble bubble)
             {
@@ -503,7 +588,8 @@ namespace LanChat.Client.Views
 
         private void UpdateOnlineCount()
         {
-            OnlineCountText.Text = $"Online Users: {_onlineUsers.Count}";
+            int onlineCount = _otherOnlineUsers.Count + _recentChats.Count(r => r.IsOnline);
+            OnlineCountText.Text = $"Online Users: {onlineCount}";
         }
     }
 }
