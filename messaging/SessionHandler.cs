@@ -49,6 +49,9 @@ namespace LanChat.Messaging
         /// <summary>Lấy metadata theo key. Trả về null nếu không tìm thấy.</summary>
         public string? GetMetadata(string key) => _metadata.TryGetValue(key, out var val) ? val : null;
 
+        /// <summary>Xóa metadata theo key (dọn dẹp sau khi đã sử dụng).</summary>
+        public void RemoveMetadata(string key) => _metadata.TryRemove(key, out _);
+
         public async Task StartAsync(CancellationToken ct = default)
         {
             _isRunning = true;

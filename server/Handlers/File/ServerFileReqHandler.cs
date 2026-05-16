@@ -98,13 +98,14 @@ namespace LanChat.Server.Handlers.File
                     UploaderUsername = session.Username
                 });
 
-                // Trả về TransferTokenResponsePayload
+                // Trả về TransferTokenResponsePayload (kèm ClientRequestId để Client xác định file)
                 var response = new TransferTokenResponsePayload
                 {
                     Success = true,
                     Action = "UPLOAD",
                     TransferToken = token,
-                    FileId = fileId
+                    FileId = fileId,
+                    ClientRequestId = request.ClientRequestId
                 };
                 await session.SendAsync(RoutingKeys.FileTransferRes, response);
                 Console.WriteLine($"[Server] Upload token issued for file {fileId}.");

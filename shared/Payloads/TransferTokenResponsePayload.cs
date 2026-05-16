@@ -22,5 +22,8 @@ namespace LanChat.Shared.Payloads
 
         /// <summary>Thông báo lỗi (nếu Success = false).</summary>
         public string? ErrorMessage { get; set; }
+
+        /// <summary>UUID do Client tạo, Server gửi trả lại để Client xác định file tương ứng.</summary>
+        public Guid ClientRequestId { get; set; }
     }
 }

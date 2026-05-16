@@ -266,8 +266,9 @@ namespace LanChat.Client.Services
             var fileInfo = new FileInfo(filePath);
             string fileHash = await FileTransferClient.ComputeHashAsync(filePath);
 
-            // Lưu metadata để handler biết file cần upload
-            _session.SetMetadata("pending_upload_path", filePath);
+            // Sinh ClientRequestId để định danh yêu cầu, tránh race condition khi gửi nhiều file liên tiếp
+            var clientRequestId = Guid.NewGuid();
+            _session.SetMetadata($"pending_upload_path_{clientRequestId}", filePath);
 
             await _session.SendAsync(RoutingKeys.FileUploadReq, new FileUploadRequestPayload
             {
@@ -275,7 +276,8 @@ namespace LanChat.Client.Services
                 TargetId = targetUsername,
                 FileName = fileInfo.Name,
                 FileSize = fileInfo.Length,
-                FileHash = fileHash
+                FileHash = fileHash,
+                ClientRequestId = clientRequestId
             });
         }
 
@@ -289,7 +291,9 @@ namespace LanChat.Client.Services
             var fileInfo = new FileInfo(filePath);
             string fileHash = await FileTransferClient.ComputeHashAsync(filePath);
 
-            _session.SetMetadata("pending_upload_path", filePath);
+            // Sinh ClientRequestId để định danh yêu cầu, tránh race condition khi gửi nhiều file liên tiếp
+            var clientRequestId = Guid.NewGuid();
+            _session.SetMetadata($"pending_upload_path_{clientRequestId}", filePath);
 
             await _session.SendAsync(RoutingKeys.FileUploadReq, new FileUploadRequestPayload
             {
@@ -297,7 +301,8 @@ namespace LanChat.Client.Services
                 TargetId = groupId.ToString(),
                 FileName = fileInfo.Name,
                 FileSize = fileInfo.Length,
-                FileHash = fileHash
+                FileHash = fileHash,
+                ClientRequestId = clientRequestId
             });
         }
 

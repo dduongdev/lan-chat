@@ -45,16 +45,18 @@ namespace LanChat.Client.Handlers.File
 
         private async Task HandleUploadAsync(SessionHandler session, TransferTokenResponsePayload response)
         {
-            // Lấy file path đã lưu trước đó
-            string? filePath = session.GetMetadata($"upload_file_path_{response.FileId}");
-            if (string.IsNullOrEmpty(filePath))
-                filePath = session.GetMetadata("pending_upload_path");
+            // Lấy file path bằng ClientRequestId do Client sinh ra trước đó
+            string metadataKey = $"pending_upload_path_{response.ClientRequestId}";
+            string? filePath = session.GetMetadata(metadataKey);
 
             if (string.IsNullOrEmpty(filePath) || !System.IO.File.Exists(filePath))
             {
-                Console.WriteLine("[Client] Upload failed: file path not found in metadata.");
+                Console.WriteLine($"[Client] Upload failed: file path not found for ClientRequestId={response.ClientRequestId}.");
                 return;
             }
+
+            // Dọn dẹp metadata sau khi đã lấy được file path
+            session.RemoveMetadata(metadataKey);
 
             // Lấy server host từ metadata hoặc mặc định
             string host = session.GetMetadata("server_host") ?? "127.0.0.1";

@@ -22,5 +22,8 @@ namespace LanChat.Shared.Payloads
 
         /// <summary>SHA-256 Hash của tệp tin gốc.</summary>
         public string FileHash { get; set; } = string.Empty;
+
+        /// <summary>UUID do Client tạo để định danh yêu cầu, tránh race condition khi gửi nhiều file liên tiếp.</summary>
+        public Guid ClientRequestId { get; set; }
     }
 }

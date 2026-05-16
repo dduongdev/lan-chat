@@ -39,16 +39,9 @@ namespace LanChat.Client.Handlers
                 EncryptedAesIV = encryptedIV
             };
 
-            // 5. Gán đối tượng AesCipher vào session.Cipher của Client ngay lập tức.
-            session.Cipher = aesCipher;
-
-            // 6. Gửi gói tin auth.handshake.res lên Server.
-            // Vì session.Cipher đã được gán, lệnh SendAsync này đáng lẽ sẽ mã hóa gói tin.
-            // Tuy nhiên, theo luồng, gói auth.handshake.res chứa khóa gửi cho Server nên KHÔNG được mã hóa AES (vì Server chưa có khóa).
-            // Do đó, ta tạm gỡ Cipher, gửi đi, rồi gán lại Cipher.
-            
-            session.Cipher = null; 
             await session.SendAsync(RoutingKeys.HandshakeRes, resPayload);
+
+            // 5. Lưu AesCipher vào SessionHandler để sử dụng cho các message sau.
             session.Cipher = aesCipher; 
         }
     }
