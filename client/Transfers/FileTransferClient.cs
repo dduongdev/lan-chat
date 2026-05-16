@@ -70,6 +70,11 @@ namespace LanChat.Client.Transfers
             await networkStream.FlushAsync();
             // Đóng phía gửi để Server biết đã hết dữ liệu
             tcpClient.Client.Shutdown(System.Net.Sockets.SocketShutdown.Send);
+            
+            // Chờ Server xử lý xong và đóng luồng từ phía Server (tránh đóng socket quá sớm gây lỗi RST)
+            var dummy = new byte[1];
+            await networkStream.ReadAsync(dummy, 0, 1);
+
             Console.WriteLine($"[FileTransfer] Upload completed. Total: {totalSent} bytes.");
         }
 

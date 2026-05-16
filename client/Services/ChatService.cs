@@ -72,6 +72,33 @@ namespace LanChat.Client.Services
         // ── Lưu trữ history target ──
         private string? _pendingHistoryTarget;
 
+        public void ClearEvents()
+        {
+            OnRegisterResponse = null;
+            OnLoginResponse = null;
+            OnUserJoined = null;
+            OnUserLeft = null;
+            OnUserListReceived = null;
+            OnChatMessageReceived = null;
+            OnChatEchoReceived = null;
+            OnChatHistoryReceived = null;
+            OnChatHistoryWithTarget = null;
+            OnFileUploadStarted = null;
+            OnFileDownloadStarted = null;
+            OnFileTransferProgress = null;
+            OnFileDownloadCompleted = null;
+            OnFileTransferError = null;
+            OnGroupCreateResponse = null;
+            OnGroupListReceived = null;
+            OnGroupInviteReceived = null;
+            OnGroupAddResponse = null;
+            OnGroupMemberAdded = null;
+            OnGroupLeaveResponse = null;
+            OnGroupMemberLeft = null;
+            OnDisconnected = null;
+            OnHandshakeCompleted = null;
+        }
+
         private ChatService() { }
 
         // ── Kết nối & Handshake ─────────────────────────────────────────
@@ -207,12 +234,13 @@ namespace LanChat.Client.Services
             });
         }
 
-        public async Task RequestChatHistoryAsync(string targetId, int limit = 50)
+        public async Task RequestChatHistoryAsync(string targetType, string targetId, int limit = 50)
         {
             if (_session == null) return;
             _pendingHistoryTarget = targetId;
             await _session.SendAsync(RoutingKeys.ChatHistoryReq, new ChatHistoryRequestPayload
             {
+                TargetType = targetType,
                 TargetId = targetId,
                 Limit = limit
             });

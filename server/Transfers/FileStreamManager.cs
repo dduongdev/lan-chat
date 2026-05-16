@@ -304,7 +304,9 @@ namespace LanChat.Server.Transfers
                     FileId = transfer.Id,
                     FileName = transfer.FileName,
                     FileSize = transfer.FileSize,
-                    FileHash = transfer.FileHash
+                    FileHash = transfer.FileHash,
+                    TargetType = context.TargetType,
+                    TargetId = context.TargetId
                 };
 
                 // Gửi thông báo cho đích

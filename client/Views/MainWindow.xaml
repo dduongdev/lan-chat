@@ -28,9 +28,16 @@
                 </Border>
 
                 <!-- Channels Header -->
-                <TextBlock DockPanel.Dock="Top" Text="Channels" FontSize="12" FontWeight="Bold"
-                           Foreground="{StaticResource SidebarTextSecondaryBrush}" 
-                           Margin="20,16,20,6"/>
+                <Grid DockPanel.Dock="Top" Margin="20,16,20,6">
+                    <TextBlock Text="Channels" FontSize="12" FontWeight="Bold"
+                               Foreground="{StaticResource SidebarTextSecondaryBrush}" 
+                               VerticalAlignment="Center"/>
+                    <Button x:Name="CreateGroupButton" Content="+" FontSize="14" FontWeight="Bold"
+                            Background="Transparent" Foreground="{StaticResource SidebarTextSecondaryBrush}"
+                            BorderThickness="0" Cursor="Hand" HorizontalAlignment="Right"
+                            ToolTip="Tạo nhóm mới" Click="CreateGroupButton_Click"
+                            Width="20" Height="20" Padding="0,-2,0,0"/>
+                </Grid>
 
                 <!-- Broadcast / General -->
                 <Button x:Name="BroadcastButton" DockPanel.Dock="Top" 
@@ -192,7 +199,10 @@
                                 <!-- Message bubble -->
                                 <Border Padding="12,8" CornerRadius="10" MaxWidth="480"
                                         Background="{Binding BubbleColor}"
-                                        HorizontalAlignment="{Binding Alignment}">
+                                        HorizontalAlignment="{Binding Alignment}"
+                                        Cursor="{Binding MessageCursor}"
+                                        MouseLeftButtonDown="MessageBubble_MouseLeftButtonDown"
+                                        Tag="{Binding}">
                                     <TextBlock Text="{Binding Content}" FontSize="13" TextWrapping="Wrap"
                                                Foreground="{StaticResource TextPrimaryBrush}"/>
                                 </Border>

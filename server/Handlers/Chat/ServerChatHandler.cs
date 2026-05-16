@@ -113,7 +113,9 @@ namespace LanChat.Server.Handlers.Chat
                     ServerMessageId = serverMessageId,
                     Sender = session.Username,
                     Content = request.Content,
-                    SentAt = sentAt
+                    SentAt = sentAt,
+                    TargetType = request.TargetType,
+                    TargetId = request.TargetId
                 };
 
                 switch (request.TargetType)

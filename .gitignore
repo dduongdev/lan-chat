@@ -28,3 +28,6 @@ bld/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Uploads
+Uploads/

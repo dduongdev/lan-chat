@@ -31,6 +31,11 @@ namespace LanChat.Client.Views
         public Brush BubbleColor { get; set; } = new SolidColorBrush(Color.FromRgb(224, 224, 224));
         public Visibility ShowSender { get; set; } = Visibility.Visible;
         public Visibility ShowTimeRight { get; set; } = Visibility.Collapsed;
+        public bool IsFile { get; set; } = false;
+        public Guid? FileId { get; set; }
+        public string? FileName { get; set; }
+        public string? FileHash { get; set; }
+        public System.Windows.Input.Cursor MessageCursor => IsFile ? System.Windows.Input.Cursors.Hand : System.Windows.Input.Cursors.Arrow;
     }
 
     public partial class MainWindow : Window
@@ -39,8 +44,9 @@ namespace LanChat.Client.Views
         private readonly ObservableCollection<SidebarItem> _groups = new();
         private readonly ObservableCollection<MessageBubble> _messages = new();
 
-        private string? _currentChatType; // PRIVATE, BROADCAST, GROUP
-        private string? _currentChatTarget; // username or groupId
+        private string? _currentChatType; // PRIVATE, GROUP, BROADCAST
+        private string? _currentChatTarget; // Username, GroupId, or ALL
+        private bool _isIntentionalClose = false;
 
         private readonly Brush _sentBubble;
         private readonly Brush _receivedBubble;
@@ -95,13 +101,14 @@ namespace LanChat.Client.Views
             svc.OnChatMessageReceived += msg => Dispatcher.Invoke(() =>
             {
                 // Nếu đang mở cuộc hội thoại tương ứng -> thêm tin nhắn vào
-                bool isRelevant = (_currentChatType == "PRIVATE" && _currentChatTarget == msg.Sender)
-                               || _currentChatType == "BROADCAST"
-                               || (_currentChatType == "GROUP" && _currentChatTarget != null);
+                bool isRelevant = false;
+                if (msg.TargetType == "PRIVATE" && _currentChatType == "PRIVATE" && _currentChatTarget == msg.Sender) isRelevant = true;
+                else if (msg.TargetType == "GROUP" && _currentChatType == "GROUP" && _currentChatTarget == msg.TargetId) isRelevant = true;
+                else if (msg.TargetType == "ALL" && _currentChatType == "BROADCAST") isRelevant = true;
 
                 if (isRelevant)
                 {
-                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, false);
+                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, false, msg.MessageType, msg.FileId, msg.FileName, msg.FileHash);
                 }
             });
 
@@ -116,7 +123,7 @@ namespace LanChat.Client.Views
                 foreach (var msg in messages)
                 {
                     bool isMine = msg.Sender == svc.CurrentUsername;
-                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, isMine);
+                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, isMine, msg.MessageType, msg.FileId, msg.FileName, msg.FileHash);
                 }
                 ScrollToBottom();
             });
@@ -222,10 +229,14 @@ namespace LanChat.Client.Views
             // Disconnected
             svc.OnDisconnected += () => Dispatcher.Invoke(() =>
             {
-                MessageBox.Show("Đã mất kết nối đến server.", "Ngắt kết nối", MessageBoxButton.OK, MessageBoxImage.Warning);
-                var login = new LoginWindow();
-                login.Show();
-                this.Close();
+                if (!_isIntentionalClose)
+                {
+                    ChatService.Instance.ClearEvents();
+                    MessageBox.Show("Đã mất kết nối đến server.", "Ngắt kết nối", MessageBoxButton.OK, MessageBoxImage.Warning);
+                    var login = new LoginWindow();
+                    login.Show();
+                    this.Close();
+                }
             });
         }
 
@@ -251,12 +262,12 @@ namespace LanChat.Client.Views
             SwitchChat("BROADCAST", "ALL", "#general", "AES Encrypted");
         }
 
-        private void UserListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void UserListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
         {
-            if (UserListBox.SelectedItem is SidebarItem item)
+            if (UserListBox.SelectedItem is SidebarItem selectedUser)
             {
                 GroupListBox.SelectedItem = null;
-                SwitchChat("PRIVATE", item.Id, item.DisplayName, "AES Encrypted");
+                SwitchChat("PRIVATE", selectedUser.Id, selectedUser.DisplayName, "Trò chuyện riêng tư");
                 SendFileButton.Visibility = Visibility.Visible;
                 AddMemberButton.Visibility = Visibility.Collapsed;
                 LeaveGroupButton.Visibility = Visibility.Collapsed;
@@ -287,7 +298,7 @@ namespace LanChat.Client.Views
             _messages.Clear();
 
             // Load history
-            await ChatService.Instance.RequestChatHistoryAsync(target, 50);
+            await ChatService.Instance.RequestChatHistoryAsync(type, target, 50);
         }
 
         private void ClearChatArea()
@@ -351,9 +362,14 @@ namespace LanChat.Client.Views
             var result = MessageBox.Show("Bạn muốn đăng xuất?", "Xác nhận", MessageBoxButton.YesNo, MessageBoxImage.Question);
             if (result == MessageBoxResult.Yes)
             {
+                _isIntentionalClose = true;
+                ChatService.Instance.ClearEvents();
                 await ChatService.Instance.LogoutAsync();
+                
                 var login = new LoginWindow();
                 login.Show();
+                
+                // Đóng dứt điểm
                 this.Close();
             }
         }
@@ -436,7 +452,7 @@ namespace LanChat.Client.Views
         // Helper Methods
         // ═══════════════════════════════════════════════════════════════
 
-        private void AddMessageBubble(string sender, string content, DateTime sentAt, bool isMine)
+        private void AddMessageBubble(string sender, string content, DateTime sentAt, bool isMine, string messageType = "Text", Guid? fileId = null, string? fileName = null, string? fileHash = null)
         {
             _messages.Add(new MessageBubble
             {
@@ -446,9 +462,24 @@ namespace LanChat.Client.Views
                 Alignment = isMine ? HorizontalAlignment.Right : HorizontalAlignment.Left,
                 BubbleColor = isMine ? _sentBubble : _receivedBubble,
                 ShowSender = isMine ? Visibility.Collapsed : Visibility.Visible,
-                ShowTimeRight = isMine ? Visibility.Visible : Visibility.Collapsed
+                ShowTimeRight = isMine ? Visibility.Visible : Visibility.Collapsed,
+                IsFile = messageType == "File",
+                FileId = fileId,
+                FileName = fileName,
+                FileHash = fileHash
             });
             ScrollToBottom();
+        }
+
+        private async void MessageBubble_MouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        {
+            if (sender is Border border && border.Tag is MessageBubble bubble)
+            {
+                if (bubble.IsFile && bubble.FileId.HasValue && !string.IsNullOrEmpty(bubble.FileName) && !string.IsNullOrEmpty(bubble.FileHash))
+                {
+                    await ChatService.Instance.SendFileDownloadRequestAsync(bubble.FileId.Value, bubble.FileName, bubble.FileHash);
+                }
+            }
         }
 
         private void AddSystemMessage(string text)

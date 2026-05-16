@@ -19,6 +19,12 @@ namespace LanChat.Shared.Payloads
         /// <summary>Thời gian gửi.</summary>
         public DateTime SentAt { get; set; }
 
+        /// <summary>Loại đích đến: PRIVATE, GROUP, ALL.</summary>
+        public string TargetType { get; set; } = "PRIVATE";
+
+        /// <summary>ID của người nhận hoặc nhóm (trống nếu ALL).</summary>
+        public string TargetId { get; set; } = string.Empty;
+
         /// <summary>Loại tin nhắn: "Text" hoặc "File".</summary>
         public string MessageType { get; set; } = "Text";
 
