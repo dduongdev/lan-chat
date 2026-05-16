@@ -10,6 +10,7 @@ using LanChat.Client.Handlers.Chat;
 using LanChat.Client.Handlers.File;
 using LanChat.Client.Handlers.Presence;
 using LanChat.Client.Handlers.User;
+using LanChat.Client.Transfers;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
 
@@ -37,9 +38,10 @@ namespace LanChat.Client
             dispatcher.RegisterHandler(new ClientChatEchoHandler());
             dispatcher.RegisterHandler(new ClientChatReceiveHandler());
             dispatcher.RegisterHandler(new ClientChatHistoryHandler());
-            dispatcher.RegisterHandler(new ClientFileOfferHandler());
-            dispatcher.RegisterHandler(new ClientFileStartHandler());
-            dispatcher.RegisterHandler(new ClientFileStatusHandler());
+
+            // UC-06 v2: Handler duy nhất cho file transfer
+            dispatcher.RegisterHandler(new ClientFileTransferResHandler());
+
             dispatcher.RegisterHandler(new ClientGroupCreateResponseHandler());
             dispatcher.RegisterHandler(new ClientGroupListResponseHandler());
             dispatcher.RegisterHandler(new ClientGroupInviteHandler());
@@ -56,6 +58,7 @@ namespace LanChat.Client
 
                 var simpleClient = new SimpleTcpClient(tcpClient.Client);
                 var sessionHandler = new SessionHandler(simpleClient, dispatcher);
+                sessionHandler.SetMetadata("server_host", "127.0.0.1");
 
                 // Run session handler in background
                 var sessionTask = sessionHandler.StartAsync();
@@ -141,26 +144,28 @@ namespace LanChat.Client
                     await sessionHandler.SendAsync(RoutingKeys.ChatHistoryReq, historyReq);
                     await Task.Delay(500);
 
-                    // UC-06: File Transfer
-                    // Tạo file test để gửi
+                    // UC-06 v2: File Transfer (Store & Forward)
                     string testFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, $"testfile_{testUser}.txt");
                     System.IO.File.WriteAllText(testFilePath, $"This is a test file from {testUser}. Content: Hello World! 🎉\nTimestamp: {DateTime.UtcNow}");
                     var fileInfo = new System.IO.FileInfo(testFilePath);
 
-                    Console.WriteLine($"Simulating File Transfer to {targetUser}...");
-                    var fileReqPayload = new FileRequestPayload
-                    {
-                        ReceiverUsername = targetUser,
-                        FileName = fileInfo.Name,
-                        FileSize = fileInfo.Length
-                    };
+                    Console.WriteLine($"Simulating File Upload to {targetUser} (Store & Forward)...");
 
-                    // Lưu metadata: ghi đường dẫn file để Sender biết đọc từ đâu
-                    // Ta chưa biết FileTransferId, nhưng khi nhận FileStartPayload,
-                    // Sender sẽ dựa vào file_path metadata
-                    // Workaround: lưu file path theo tên người nhận
-                    sessionHandler.SetMetadata($"pending_file_path", testFilePath);
-                    await sessionHandler.SendAsync(RoutingKeys.FileRequest, fileReqPayload);
+                    // Tính SHA-256 hash
+                    string fileHash = await FileTransferClient.ComputeHashAsync(testFilePath);
+                    Console.WriteLine($"File hash: {fileHash}");
+
+                    // Lưu metadata cho upload
+                    sessionHandler.SetMetadata("pending_upload_path", testFilePath);
+
+                    await sessionHandler.SendAsync(RoutingKeys.FileUploadReq, new FileUploadRequestPayload
+                    {
+                        TargetType = "PRIVATE",
+                        TargetId = targetUser,
+                        FileName = fileInfo.Name,
+                        FileSize = fileInfo.Length,
+                        FileHash = fileHash
+                    });
                     await Task.Delay(500);
 
                     // UC-08: Group Management
@@ -185,7 +190,7 @@ namespace LanChat.Client
                     Console.WriteLine("Failed to encrypt channel.");
                 }
 
-                // Chờ thêm 15 giây để nhận các gói tin đến (File Offer, File Start, ChatReceive...)
+                // Chờ thêm 15 giây để nhận các gói tin đến
                 Console.WriteLine("Waiting for incoming messages (15s)...");
                 await Task.Delay(15000);
 

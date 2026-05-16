@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Net.Sockets;
 using System.Threading;
 using System.Threading.Tasks;
@@ -7,6 +8,7 @@ using SimpleTcp;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
+using LanChat.Client.Transfers;
 
 namespace LanChat.Client.Services
 {
@@ -27,6 +29,7 @@ namespace LanChat.Client.Services
         public SessionHandler? Session => _session;
         public bool IsConnected => _session != null;
         public string? CurrentUsername { get; set; }
+        public string ServerHost { get; set; } = "127.0.0.1";
 
         // ── Events cho UI ──────────────────────────────────────────────
 
@@ -46,10 +49,12 @@ namespace LanChat.Client.Services
         // Lưu TargetId kèm theo history để UI biết history này thuộc cuộc hội thoại nào
         public event Action<string, List<ChatMessageDto>>? OnChatHistoryWithTarget;
 
-        // File
-        public event Action<FileOfferPayload>? OnFileOfferReceived;
-        public event Action<Guid, string, int>? OnFileStartReceived; // transferId, host, port
-        public event Action<Guid, string>? OnFileStatusReceived; // transferId, status
+        // UC-06 v2: File Transfer Events
+        public event Action<Guid>? OnFileUploadStarted;           // FileId
+        public event Action<Guid>? OnFileDownloadStarted;         // FileId
+        public event Action<Guid, long, long>? OnFileTransferProgress; // FileId, current, total
+        public event Action<Guid, string>? OnFileDownloadCompleted;    // FileId, savePath
+        public event Action<Guid, string>? OnFileTransferError;        // FileId, errorMessage
 
         // Group
         public event Action<GroupCreateResponsePayload>? OnGroupCreateResponse;
@@ -73,12 +78,15 @@ namespace LanChat.Client.Services
 
         public async Task ConnectAsync(string host, int port)
         {
+            ServerHost = host;
+
             var tcpClient = new TcpClient();
             await tcpClient.ConnectAsync(host, port);
 
             var simpleClient = new SimpleTcpClient(tcpClient.Client);
             var dispatcher = CreateDispatcher();
             _session = new SessionHandler(simpleClient, dispatcher);
+            _session.SetMetadata("server_host", host);
             _cts = new CancellationTokenSource();
 
             _sessionTask = Task.Run(async () =>
@@ -210,28 +218,73 @@ namespace LanChat.Client.Services
             });
         }
 
-        // ── File Transfer ───────────────────────────────────────────────
+        // ── UC-06 v2: File Transfer ─────────────────────────────────────
 
-        public async Task SendFileRequestAsync(string receiverUsername, string filePath)
+        /// <summary>
+        /// Gửi yêu cầu Upload file (PRIVATE).
+        /// </summary>
+        public async Task SendFileUploadRequestAsync(string targetUsername, string filePath)
         {
             if (_session == null) return;
-            var fileInfo = new System.IO.FileInfo(filePath);
-            _session.SetMetadata("pending_file_path", filePath);
-            await _session.SendAsync(RoutingKeys.FileRequest, new FileRequestPayload
+
+            var fileInfo = new FileInfo(filePath);
+            string fileHash = await FileTransferClient.ComputeHashAsync(filePath);
+
+            // Lưu metadata để handler biết file cần upload
+            _session.SetMetadata("pending_upload_path", filePath);
+
+            await _session.SendAsync(RoutingKeys.FileUploadReq, new FileUploadRequestPayload
             {
-                ReceiverUsername = receiverUsername,
+                TargetType = "PRIVATE",
+                TargetId = targetUsername,
                 FileName = fileInfo.Name,
-                FileSize = fileInfo.Length
+                FileSize = fileInfo.Length,
+                FileHash = fileHash
             });
         }
 
-        public async Task RespondToFileOfferAsync(Guid fileTransferId, bool accepted)
+        /// <summary>
+        /// Gửi yêu cầu Upload file cho nhóm (GROUP).
+        /// </summary>
+        public async Task SendGroupFileUploadRequestAsync(Guid groupId, string filePath)
         {
             if (_session == null) return;
-            await _session.SendAsync(RoutingKeys.FileResponse, new FileResponsePayload
+
+            var fileInfo = new FileInfo(filePath);
+            string fileHash = await FileTransferClient.ComputeHashAsync(filePath);
+
+            _session.SetMetadata("pending_upload_path", filePath);
+
+            await _session.SendAsync(RoutingKeys.FileUploadReq, new FileUploadRequestPayload
             {
-                FileTransferId = fileTransferId,
-                Accepted = accepted
+                TargetType = "GROUP",
+                TargetId = groupId.ToString(),
+                FileName = fileInfo.Name,
+                FileSize = fileInfo.Length,
+                FileHash = fileHash
+            });
+        }
+
+        /// <summary>
+        /// Gửi yêu cầu Download file.
+        /// </summary>
+        public async Task SendFileDownloadRequestAsync(Guid fileId, string fileName, string fileHash, string? customSavePath = null)
+        {
+            if (_session == null) return;
+
+            // Lưu metadata cho download handler
+            string savePath = customSavePath ?? Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.Desktop),
+                "LanChat_Received",
+                fileName
+            );
+            _session.SetMetadata($"download_save_path_{fileId}", savePath);
+            _session.SetMetadata($"download_file_name_{fileId}", fileName);
+            _session.SetMetadata($"download_hash_{fileId}", fileHash);
+
+            await _session.SendAsync(RoutingKeys.FileDownloadReq, new FileDownloadRequestPayload
+            {
+                FileId = fileId
             });
         }
 
@@ -290,9 +343,14 @@ namespace LanChat.Client.Services
                 _pendingHistoryTarget = null;
             }
         }
-        public void RaiseFileOfferReceived(FileOfferPayload offer) => OnFileOfferReceived?.Invoke(offer);
-        public void RaiseFileStartReceived(Guid transferId, string host, int port) => OnFileStartReceived?.Invoke(transferId, host, port);
-        public void RaiseFileStatusReceived(Guid transferId, string status) => OnFileStatusReceived?.Invoke(transferId, status);
+
+        // UC-06 v2 Event Invokers
+        public void RaiseFileUploadStarted(Guid fileId) => OnFileUploadStarted?.Invoke(fileId);
+        public void RaiseFileDownloadStarted(Guid fileId) => OnFileDownloadStarted?.Invoke(fileId);
+        public void RaiseFileTransferProgress(Guid fileId, long current, long total) => OnFileTransferProgress?.Invoke(fileId, current, total);
+        public void RaiseFileDownloadCompleted(Guid fileId, string savePath) => OnFileDownloadCompleted?.Invoke(fileId, savePath);
+        public void RaiseFileTransferError(Guid fileId, string errorMessage) => OnFileTransferError?.Invoke(fileId, errorMessage);
+
         public void RaiseGroupCreateResponse(GroupCreateResponsePayload res) => OnGroupCreateResponse?.Invoke(res);
         public void RaiseGroupListReceived(List<GroupInfoDto> groups) => OnGroupListReceived?.Invoke(groups);
         public void RaiseGroupInviteReceived(GroupInfoDto group) => OnGroupInviteReceived?.Invoke(group);
@@ -317,9 +375,10 @@ namespace LanChat.Client.Services
             dispatcher.RegisterHandler(new Handlers.Chat.ClientChatEchoHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientChatReceiveHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientChatHistoryHandler());
-            dispatcher.RegisterHandler(new Handlers.File.ClientFileOfferHandler());
-            dispatcher.RegisterHandler(new Handlers.File.ClientFileStartHandler());
-            dispatcher.RegisterHandler(new Handlers.File.ClientFileStatusHandler());
+
+            // UC-06 v2: Handler duy nhất cho file transfer
+            dispatcher.RegisterHandler(new Handlers.File.ClientFileTransferResHandler());
+
             dispatcher.RegisterHandler(new Handlers.Chat.ClientGroupCreateResponseHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientGroupListResponseHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientGroupInviteHandler());

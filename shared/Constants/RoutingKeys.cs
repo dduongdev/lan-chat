@@ -57,28 +57,27 @@ namespace LanChat.Shared.Constants
         // Server -> Client: Phản hồi lịch sử chat
         public const string ChatHistoryRes = "chat.his.res";
 
-        // Sender -> Server: Yêu cầu gửi file
-        public const string FileRequest = "file.req";
+        // ── UC-06 v2: Store & Forward File Transfer ──────────────────────
 
-        // Server -> Receiver: Lời mời nhận file
-        public const string FileOffer = "file.offer";
+        // Client -> Server: Yêu cầu tải file lên
+        public const string FileUploadReq = "file.upload.req";
 
-        // Receiver -> Server: Phản hồi lời mời
-        public const string FileResponse = "file.res";
+        // Client -> Server: Yêu cầu tải file xuống
+        public const string FileDownloadReq = "file.download.req";
 
-        // Server -> Sender & Receiver: Bắt đầu truyền file
-        public const string FileStartTransfer = "file.start";
+        // Server -> Client: Phản hồi Token cho cả Upload và Download
+        public const string FileTransferRes = "file.transfer.res";
 
-        // Client -> Server: Báo cáo trạng thái hoàn tất/lỗi
-        public const string FileStatusUpdate = "file.status";
+        // ── Auth / Logout ────────────────────────────────────────────────
 
         // Client -> Server: Yêu cầu đăng xuất
         public const string AuthLogoutReq = "auth.logout.req";
 
-        // Group creation (Already existed in UC-05, we just redefine here for clarity)
+        // ── Group Management ─────────────────────────────────────────────
+
         public const string GroupCreateReq  = "group.create.req";
         public const string GroupCreateRes  = "group.create.res";
-        public const string GroupInvite     = "group.invite";     // Bị thêm vào nhóm
+        public const string GroupInvite     = "group.invite";
 
         // Lấy danh sách nhóm
         public const string GroupListReq    = "group.list.req";
@@ -87,12 +86,12 @@ namespace LanChat.Shared.Constants
         // Thêm thành viên
         public const string GroupAddReq     = "group.add.req";
         public const string GroupAddRes     = "group.add.res";
-        public const string GroupMemberAdded = "group.member.added"; // Broadcast cho nhóm
+        public const string GroupMemberAdded = "group.member.added";
 
         // Rời nhóm
         public const string GroupLeaveReq   = "group.leave.req";
         public const string GroupLeaveRes   = "group.leave.res";
-        public const string GroupMemberLeft = "group.member.left";   // Broadcast cho nhóm
+        public const string GroupMemberLeft = "group.member.left";
 
         // Client -> Server: Ping heartbeat
         public const string SysPing = "sys.ping";

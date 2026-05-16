@@ -203,26 +203,20 @@ namespace LanChat.Client.Views
                 }
             });
 
-            // File Transfer
-            svc.OnFileOfferReceived += offer => Dispatcher.Invoke(() =>
+            // UC-06 v2: File Transfer
+            svc.OnFileUploadStarted += fileId => Dispatcher.Invoke(() =>
             {
-                double sizeMB = offer.FileSize / (1024.0 * 1024.0);
-                var result = MessageBox.Show(
-                    $"📁 {offer.SenderUsername} muốn gửi file:\n\n" +
-                    $"Tên file: {offer.FileName}\n" +
-                    $"Kích thước: {sizeMB:F2} MB\n\n" +
-                    $"Bạn có muốn nhận không?",
-                    "Nhận file", MessageBoxButton.YesNo, MessageBoxImage.Question);
-
-                _ = svc.RespondToFileOfferAsync(offer.FileTransferId, result == MessageBoxResult.Yes);
+                AddSystemMessage("📤 Đang tải file lên Server...");
             });
 
-            svc.OnFileStatusReceived += (transferId, status) => Dispatcher.Invoke(() =>
+            svc.OnFileDownloadCompleted += (fileId, savePath) => Dispatcher.Invoke(() =>
             {
-                if (status == "Completed")
-                    AddSystemMessage("✅ Truyền file hoàn tất!");
-                else
-                    AddSystemMessage($"❌ Truyền file: {status}");
+                AddSystemMessage($"✅ Tải file hoàn tất! Lưu tại: {savePath}");
+            });
+
+            svc.OnFileTransferError += (fileId, error) => Dispatcher.Invoke(() =>
+            {
+                AddSystemMessage($"❌ Lỗi truyền file: {error}");
             });
 
             // Disconnected
@@ -275,7 +269,7 @@ namespace LanChat.Client.Views
             {
                 UserListBox.SelectedItem = null;
                 SwitchChat("GROUP", item.Id, $"#{item.DisplayName}", $"AES Encrypted · {item.SubText}");
-                SendFileButton.Visibility = Visibility.Collapsed;
+                SendFileButton.Visibility = Visibility.Visible;
                 AddMemberButton.Visibility = Visibility.Visible;
                 LeaveGroupButton.Visibility = Visibility.Visible;
             }
@@ -366,7 +360,7 @@ namespace LanChat.Client.Views
 
         private void SendFileButton_Click(object sender, RoutedEventArgs e)
         {
-            if (_currentChatType != "PRIVATE" || _currentChatTarget == null) return;
+            if (_currentChatTarget == null) return;
 
             var dialog = new OpenFileDialog
             {
@@ -376,7 +370,14 @@ namespace LanChat.Client.Views
 
             if (dialog.ShowDialog() == true)
             {
-                _ = ChatService.Instance.SendFileRequestAsync(_currentChatTarget, dialog.FileName);
+                if (_currentChatType == "PRIVATE")
+                {
+                    _ = ChatService.Instance.SendFileUploadRequestAsync(_currentChatTarget, dialog.FileName);
+                }
+                else if (_currentChatType == "GROUP" && Guid.TryParse(_currentChatTarget, out var gid))
+                {
+                    _ = ChatService.Instance.SendGroupFileUploadRequestAsync(gid, dialog.FileName);
+                }
                 AddSystemMessage($"📤 Đang gửi file: {System.IO.Path.GetFileName(dialog.FileName)}...");
             }
         }
