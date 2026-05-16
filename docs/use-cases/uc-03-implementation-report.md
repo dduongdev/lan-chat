@@ -1,6 +1,6 @@
 # Báo cáo Triển khai UC-03: User Login
 
-Tài liệu này tổng kết các thành phần đã được triển khai cho Use Case **User Login** (Đăng nhập), tuân thủ đúng yêu cầu kỹ thuật và quy tắc bảo mật từ `uc3_class_design.md`.
+Tài liệu này tổng kết các thành phần đã được triển khai cho Use Case **User Login** (Đăng nhập), tuân thủ đúng yêu cầu kỹ thuật và quy tắc bảo mật từ `uc-03-class-design.md`.
 
 ## 1. Các thành phần đã triển khai
 

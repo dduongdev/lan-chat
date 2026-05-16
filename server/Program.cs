@@ -32,7 +32,6 @@ namespace LanChat.Server
                 options.UseSqlite("Data Source=lanchat.db"));
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<SessionManager>();
-            services.AddSingleton<FileTransferManager>();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -47,7 +46,10 @@ namespace LanChat.Server
             // Lấy các Singleton services
             var passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
             var sessionManager = serviceProvider.GetRequiredService<SessionManager>();
-            var fileTransferManager = serviceProvider.GetRequiredService<FileTransferManager>();
+
+            // UC-06 v2: Khởi tạo FileStreamManager (Data Plane - Port 8081)
+            var fileStreamManager = new FileStreamManager(serviceProvider, sessionManager);
+            fileStreamManager.Start();
 
             // Khởi tạo Dispatcher và đăng ký Handler
             var dispatcher = new MessageDispatcher();
@@ -56,11 +58,14 @@ namespace LanChat.Server
             dispatcher.RegisterHandler(new ServerRegisterHandler(serviceProvider, passwordHasher));
             dispatcher.RegisterHandler(new ServerLoginHandler(serviceProvider, passwordHasher, sessionManager));
             dispatcher.RegisterHandler(new ServerUserListHandler(sessionManager));
+            dispatcher.RegisterHandler(new ServerRecentChatsHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerChatHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerChatHistoryHandler(serviceProvider));
-            dispatcher.RegisterHandler(new ServerFileRequestHandler(serviceProvider, sessionManager));
-            dispatcher.RegisterHandler(new ServerFileResponseHandler(serviceProvider, sessionManager, fileTransferManager));
-            dispatcher.RegisterHandler(new ServerFileStatusHandler(serviceProvider));
+
+            // UC-06 v2: Đăng ký handler mới
+            dispatcher.RegisterHandler(new ServerFileUploadHandler(serviceProvider, sessionManager, fileStreamManager));
+            dispatcher.RegisterHandler(new ServerFileDownloadHandler(serviceProvider, sessionManager, fileStreamManager));
+
             dispatcher.RegisterHandler(new ServerLogoutHandler(sessionManager));
             dispatcher.RegisterHandler(new ServerHeartbeatHandler());
             dispatcher.RegisterHandler(new ServerGroupListHandler(serviceProvider));
@@ -70,7 +75,7 @@ namespace LanChat.Server
 
             var tcpListener = new TcpListener(IPAddress.Any, 8080);
             tcpListener.Start();
-            Console.WriteLine("Server is listening on port 8080...");
+            Console.WriteLine("Server is listening on port 8080 (Control Plane)...");
 
             // SessionJanitor (Background Service)
             _ = Task.Run(async () =>
@@ -92,6 +97,9 @@ namespace LanChat.Server
                 }
             });
 
+            // UC-06 v2: FileJanitor (Background Service)
+            _ = Task.Run(async () => await FileJanitorService.RunAsync(serviceProvider, fileStreamManager));
+
             while (true)
             {
                 var tcpClient = await tcpListener.AcceptTcpClientAsync();
@@ -100,7 +108,6 @@ namespace LanChat.Server
                 var simpleClient = new SimpleTcpClient(tcpClient.Client);
                 var sessionHandler = new SessionHandler(simpleClient, dispatcher);
                 
-                // For test purpose, we just run the session
                 _ = Task.Run(async () => {
                     try
                     {

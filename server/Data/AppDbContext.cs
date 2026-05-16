@@ -70,6 +70,8 @@ namespace LanChat.Server.Data
                 entity.HasKey(m => m.Id);
                 entity.Property(m => m.Content).IsRequired();
                 entity.Property(m => m.SentAt).IsRequired();
+                entity.Property(m => m.MessageType).IsRequired().HasMaxLength(10).HasDefaultValue("Text");
+                entity.Property(m => m.FileId);
 
                 entity.HasOne(m => m.Sender)
                     .WithMany(u => u.SentMessages)
@@ -86,6 +88,11 @@ namespace LanChat.Server.Data
                     .HasForeignKey(m => m.GroupId)
                     .OnDelete(DeleteBehavior.Cascade);
 
+                entity.HasOne(m => m.FileTransfer)
+                    .WithMany()
+                    .HasForeignKey(m => m.FileId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
                 // Cho phép cả ReceiverId và GroupId đều null (broadcast ALL)
             });
 
@@ -93,22 +100,21 @@ namespace LanChat.Server.Data
             {
                 entity.HasKey(ft => ft.Id);
                 entity.Property(ft => ft.FileName).IsRequired();
+                entity.Property(ft => ft.FileHash).IsRequired();
+                entity.Property(ft => ft.StoragePath).IsRequired();
                 entity.Property(ft => ft.Status).IsRequired().HasMaxLength(20);
-                entity.Property(ft => ft.RequestedAt).IsRequired();
+                entity.Property(ft => ft.CreatedAt).IsRequired();
+                entity.Property(ft => ft.TargetType).IsRequired().HasMaxLength(10);
+                entity.Property(ft => ft.TargetId).IsRequired();
 
-                entity.HasOne(ft => ft.Sender)
-                    .WithMany(u => u.SentFileTransfers)
-                    .HasForeignKey(ft => ft.SenderId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(ft => ft.Receiver)
-                    .WithMany(u => u.ReceivedFileTransfers)
-                    .HasForeignKey(ft => ft.ReceiverId)
+                entity.HasOne(ft => ft.Uploader)
+                    .WithMany(u => u.UploadedFiles)
+                    .HasForeignKey(ft => ft.UploaderId)
                     .OnDelete(DeleteBehavior.Restrict);
 
                 entity.ToTable(t => t.HasCheckConstraint(
                     "CK_FileTransfer_Status",
-                    "Status IN ('Pending', 'Transferring', 'Completed', 'Rejected', 'Failed')"));
+                    "Status IN ('Uploading', 'Available', 'Corrupted')"));
             });
         }
     }

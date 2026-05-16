@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using LanChat.Messaging;
 using LanChat.Server.Data;
+using LanChat.Server.Entities;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
 
@@ -43,26 +44,39 @@ namespace LanChat.Server.Handlers.Chat
                 using var scope = _serviceProvider.CreateScope();
                 var dbContext = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-                // Tìm User IDs
                 var currentUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == session.Username);
-                var targetUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.TargetId);
+                if (currentUser == null) return;
 
-                if (currentUser == null || targetUser == null)
+                IQueryable<Message> query = dbContext.Messages;
+
+                if (request.TargetType == "PRIVATE")
                 {
-                    Console.WriteLine("[Server] User not found for chat history.");
-                    await session.SendAsync(RoutingKeys.ChatHistoryRes, new ChatHistoryResponsePayload
+                    var targetUser = await dbContext.Users.FirstOrDefaultAsync(u => u.Username == request.TargetId);
+                    if (targetUser == null)
                     {
-                        TargetId = request.TargetId,
-                        Messages = new()
-                    });
-                    return;
-                }
-
-                // Truy vấn lịch sử: tin nhắn giữa 2 người (cả 2 chiều)
-                var query = dbContext.Messages
-                    .Where(m =>
+                        await session.SendAsync(RoutingKeys.ChatHistoryRes, new ChatHistoryResponsePayload { TargetId = request.TargetId, Messages = new() });
+                        return;
+                    }
+                    query = query.Where(m =>
                         (m.SenderId == currentUser.Id && m.ReceiverId == targetUser.Id) ||
                         (m.SenderId == targetUser.Id && m.ReceiverId == currentUser.Id));
+                }
+                else if (request.TargetType == "GROUP")
+                {
+                    if (Guid.TryParse(request.TargetId, out var groupId))
+                    {
+                        query = query.Where(m => m.GroupId == groupId);
+                    }
+                    else
+                    {
+                        await session.SendAsync(RoutingKeys.ChatHistoryRes, new ChatHistoryResponsePayload { TargetId = request.TargetId, Messages = new() });
+                        return;
+                    }
+                }
+                else if (request.TargetType == "ALL" || request.TargetType == "BROADCAST")
+                {
+                    query = query.Where(m => m.ReceiverId == null && m.GroupId == null);
+                }
 
                 // Phân trang theo thời gian
                 if (request.BeforeTimestamp.HasValue)
@@ -76,19 +90,27 @@ namespace LanChat.Server.Handlers.Chat
                     .OrderByDescending(m => m.SentAt)
                     .Take(limit)
                     .Include(m => m.Sender)
+                    .Include(m => m.FileTransfer)
                     .Select(m => new ChatMessageDto
                     {
                         ServerMessageId = m.Id,
                         Sender = m.Sender.Username,
                         Content = m.Content,
-                        SentAt = m.SentAt
+                        SentAt = m.SentAt,
+                        MessageType = m.MessageType,
+                        FileId = m.FileId,
+                        FileName = m.FileTransfer != null ? m.FileTransfer.FileName : null,
+                        FileHash = m.FileTransfer != null ? m.FileTransfer.FileHash : null,
+                        TargetType = request.TargetType,
+                        TargetId = request.TargetId
                     })
                     .ToListAsync();
 
                 // Đảo ngược để trả về thứ tự cũ -> mới
                 messages.Reverse();
 
-                Console.WriteLine($"[Server] Returning {messages.Count} history messages for '{request.TargetId}'.");
+                var list = messages as System.Collections.Generic.List<ChatMessageDto> ?? messages.ToList();
+                Console.WriteLine($"[Server] Returning {list.Count} history messages for '{request.TargetId}'.");
                 await session.SendAsync(RoutingKeys.ChatHistoryRes, new ChatHistoryResponsePayload
                 {
                     TargetId = request.TargetId,

@@ -1,6 +1,7 @@
 using System;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanChat.Client.Services;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
@@ -16,17 +17,7 @@ namespace LanChat.Client.Handlers.Auth
             var response = payload.Deserialize<RegisterResponsePayload>();
             if (response == null) return Task.CompletedTask;
 
-            if (response.Success)
-            {
-                Console.WriteLine($"[Client UI] Đăng ký thành công! {response.Message}");
-                // TODO: Chuyển người dùng về màn hình Login
-            }
-            else
-            {
-                Console.WriteLine($"[Client UI] Đăng ký thất bại: {response.Message}");
-                // TODO: Kích hoạt lại nút Register trên UI
-            }
-
+            ChatService.Instance.RaiseRegisterResponse(response.Success, response.Message);
             return Task.CompletedTask;
         }
     }

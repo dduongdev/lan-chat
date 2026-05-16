@@ -13,7 +13,6 @@ namespace LanChat.Server.Entities
         public ICollection<Message> ReceivedMessages { get; set; } = new List<Message>();
         public ICollection<ChatGroup> CreatedGroups { get; set; } = new List<ChatGroup>();
         public ICollection<GroupMember> GroupMemberships { get; set; } = new List<GroupMember>();
-        public ICollection<FileTransfer> SentFileTransfers { get; set; } = new List<FileTransfer>();
-        public ICollection<FileTransfer> ReceivedFileTransfers { get; set; } = new List<FileTransfer>();
+        public ICollection<FileTransfer> UploadedFiles { get; set; } = new List<FileTransfer>();
     }
 }

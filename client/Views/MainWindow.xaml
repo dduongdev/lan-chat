@@ -1,0 +1,329 @@
+<Window x:Class="LanChat.Client.Views.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="LanChat" Height="650" Width="950"
+        MinHeight="500" MinWidth="750"
+        WindowStartupLocation="CenterScreen"
+        Background="{StaticResource BgDarkBrush}">
+
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="240"/>
+            <ColumnDefinition Width="*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- ═══════════════ SIDEBAR ═══════════════ -->
+        <Border Grid.Column="0" Background="{StaticResource SidebarBgBrush}">
+            <DockPanel>
+                <!-- Header: LanChat branding -->
+                <Border DockPanel.Dock="Top" Padding="20,18" BorderBrush="#1A5A4C" BorderThickness="0,0,0,1">
+                    <DockPanel>
+                        <Button x:Name="LogoutButton" DockPanel.Dock="Right" Content="⏻" FontSize="14"
+                                Background="Transparent" Foreground="{StaticResource SidebarTextSecondaryBrush}"
+                                BorderThickness="0" Cursor="Hand" ToolTip="Đăng xuất" Click="LogoutButton_Click"
+                                Width="28" Height="28"/>
+                        <TextBlock Text="LanChat" FontSize="18" FontWeight="Bold"
+                                   Foreground="White" VerticalAlignment="Center"/>
+                    </DockPanel>
+                </Border>
+
+                <!-- Channels Header -->
+                <Grid DockPanel.Dock="Top" Margin="20,16,20,6">
+                    <TextBlock Text="Channels" FontSize="12" FontWeight="Bold"
+                               Foreground="{StaticResource SidebarTextSecondaryBrush}" 
+                               VerticalAlignment="Center"/>
+                    <Button x:Name="CreateGroupButton" Content="+" FontSize="14" FontWeight="Bold"
+                            Background="Transparent" Foreground="{StaticResource SidebarTextSecondaryBrush}"
+                            BorderThickness="0" Cursor="Hand" HorizontalAlignment="Right"
+                            ToolTip="Tạo nhóm mới" Click="CreateGroupButton_Click"
+                            Width="20" Height="20" Padding="0,-2,0,0"/>
+                </Grid>
+
+                <!-- Broadcast / General -->
+                <Button x:Name="BroadcastButton" DockPanel.Dock="Top" 
+                        HorizontalContentAlignment="Left" Padding="20,8"
+                        Background="Transparent" Foreground="White"
+                        BorderThickness="0" Cursor="Hand" FontSize="13"
+                        Click="BroadcastButton_Click">
+                    <TextBlock Text="# general" FontWeight="Medium"/>
+                </Button>
+
+                <!-- Group list -->
+                <ListBox x:Name="GroupListBox" DockPanel.Dock="Top" MaxHeight="180"
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         SelectionChanged="GroupListBox_SelectionChanged"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Padding="20,6">
+                                <Run Text="# " Foreground="{StaticResource SidebarTextSecondaryBrush}"/>
+                                <Run Text="{Binding DisplayName}" Foreground="White"/>
+                            </TextBlock>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="0">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#1A5A4C"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#15504A"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Recent Chats Header -->
+                <TextBlock DockPanel.Dock="Top" Text="Recent Chats" FontSize="12" FontWeight="Bold"
+                           Foreground="{StaticResource SidebarTextSecondaryBrush}" 
+                           Margin="20,18,20,6"/>
+
+                <!-- Recent chats list -->
+                <ListBox x:Name="RecentChatsListBox" 
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         SelectionChanged="UserListBox_SelectionChanged"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         DockPanel.Dock="Top">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="20,5">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="Medium"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource SidebarTextSecondaryBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource SuccessBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="0">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#1A5A4C"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#15504A"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Online Users Header -->
+                <TextBlock DockPanel.Dock="Top" Text="Other Online Users" FontSize="12" FontWeight="Bold"
+                           Foreground="{StaticResource SidebarTextSecondaryBrush}" 
+                           Margin="20,18,20,6"/>
+
+                <!-- Online user list -->
+                <ListBox x:Name="UserListBox" 
+                         Background="Transparent" BorderThickness="0" Padding="0"
+                         SelectionChanged="UserListBox_SelectionChanged"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         DockPanel.Dock="Top">
+                    <ListBox.ItemTemplate>
+                        <DataTemplate>
+                            <DockPanel Margin="20,5">
+                                <TextBlock Text="{Binding DisplayName}" FontSize="13" FontWeight="Medium"
+                                           Foreground="White" VerticalAlignment="Center"/>
+                                <Ellipse Width="8" Height="8" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="8,0,0,0">
+                                    <Ellipse.Style>
+                                        <Style TargetType="Ellipse">
+                                            <Setter Property="Fill" Value="{StaticResource SidebarTextSecondaryBrush}"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding IsOnline}" Value="True">
+                                                    <Setter Property="Fill" Value="{StaticResource SuccessBrush}"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Ellipse.Style>
+                                </Ellipse>
+                            </DockPanel>
+                        </DataTemplate>
+                    </ListBox.ItemTemplate>
+                    <ListBox.ItemContainerStyle>
+                        <Style TargetType="ListBoxItem">
+                            <Setter Property="Padding" Value="0"/>
+                            <Setter Property="Margin" Value="0"/>
+                            <Setter Property="Background" Value="Transparent"/>
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListBoxItem">
+                                        <Border x:Name="Bd" Background="{TemplateBinding Background}" Padding="0">
+                                            <ContentPresenter/>
+                                        </Border>
+                                        <ControlTemplate.Triggers>
+                                            <Trigger Property="IsSelected" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#1A5A4C"/>
+                                            </Trigger>
+                                            <Trigger Property="IsMouseOver" Value="True">
+                                                <Setter TargetName="Bd" Property="Background" Value="#15504A"/>
+                                            </Trigger>
+                                        </ControlTemplate.Triggers>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                        </Style>
+                    </ListBox.ItemContainerStyle>
+                </ListBox>
+
+                <!-- Online user count (bottom) -->
+                <Border DockPanel.Dock="Bottom" Padding="20,12" BorderBrush="#1A5A4C" BorderThickness="0,1,0,0">
+                    <TextBlock x:Name="OnlineCountText" Text="Online Users: 0" FontSize="12"
+                               Foreground="{StaticResource SidebarTextSecondaryBrush}"/>
+                </Border>
+
+                <!-- Spacer -->
+                <Border/>
+            </DockPanel>
+        </Border>
+
+        <!-- ═══════════════ CHAT AREA ═══════════════ -->
+        <Grid Grid.Column="1">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+
+            <!-- Chat header -->
+            <Border Grid.Row="0" Padding="20,14" Background="{StaticResource BgLightBrush}"
+                    BorderBrush="#D8D5CC" BorderThickness="0,0,0,1">
+                <DockPanel>
+                    <!-- Action buttons -->
+                    <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="SendFileButton" Content="📎" FontSize="16" ToolTip="Gửi file"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" Cursor="Hand" Click="SendFileButton_Click"
+                                Width="32" Height="32" Visibility="Collapsed"/>
+                        <Button x:Name="AddMemberButton" Content="👤+" FontSize="13" ToolTip="Thêm thành viên"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" Cursor="Hand" Click="AddMemberButton_Click"
+                                Width="32" Height="32" Visibility="Collapsed"/>
+                        <Button x:Name="LeaveGroupButton" Content="🚪" FontSize="14" ToolTip="Rời nhóm"
+                                Background="Transparent" Foreground="{StaticResource DangerBrush}"
+                                BorderThickness="0" Cursor="Hand" Click="LeaveGroupButton_Click"
+                                Width="32" Height="32" Visibility="Collapsed"/>
+                    </StackPanel>
+                    <StackPanel>
+                        <TextBlock x:Name="ChatHeaderText" Text="Chọn một cuộc hội thoại" FontSize="16" FontWeight="Bold"
+                                   Foreground="{StaticResource TextPrimaryBrush}"/>
+                        <TextBlock x:Name="ChatSubHeaderText" Text="AES Encrypted" FontSize="11"
+                                   Foreground="{StaticResource TextSecondaryBrush}"/>
+                    </StackPanel>
+                </DockPanel>
+            </Border>
+
+            <!-- Messages area -->
+            <ScrollViewer x:Name="MessageScrollViewer" Grid.Row="1" VerticalScrollBarVisibility="Auto" 
+                          Background="{StaticResource BgDarkBrush}">
+                <ItemsControl x:Name="MessagesPanel" Margin="20,8">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate>
+                            <StackPanel Margin="0,6" HorizontalAlignment="{Binding Alignment}">
+                                <!-- Sender + Time row -->
+                                <StackPanel Orientation="Horizontal" Margin="0,0,0,3"
+                                            Visibility="{Binding ShowSender}">
+                                    <TextBlock Text="{Binding SenderLabel}" FontSize="12" FontWeight="Bold"
+                                               Foreground="{StaticResource TextPrimaryBrush}" Margin="0,0,8,0"/>
+                                    <TextBlock Text="{Binding TimeText}" FontSize="11"
+                                               Foreground="{StaticResource TextSecondaryBrush}" VerticalAlignment="Center"/>
+                                </StackPanel>
+                                <!-- Message bubble -->
+                                <Border Padding="12,8" CornerRadius="10" MaxWidth="480"
+                                        Background="{Binding BubbleColor}"
+                                        HorizontalAlignment="{Binding Alignment}"
+                                        Cursor="{Binding MessageCursor}"
+                                        PreviewMouseLeftButtonDown="MessageBubble_PreviewMouseLeftButtonDown"
+                                        Tag="{Binding}">
+                                    <TextBlock Text="{Binding Content}" FontSize="13" TextWrapping="Wrap"
+                                               Foreground="{StaticResource TextPrimaryBrush}"/>
+                                </Border>
+                                <!-- Time for sent messages (right side, no sender label) -->
+                                <TextBlock Text="{Binding TimeText}" FontSize="10"
+                                           Foreground="{StaticResource TextSecondaryBrush}"
+                                           HorizontalAlignment="{Binding Alignment}" Margin="0,2,0,0"
+                                           Visibility="{Binding ShowTimeRight}"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </ScrollViewer>
+
+            <!-- Input area -->
+            <Border Grid.Row="2" Padding="12,10" Background="{StaticResource BgLightBrush}"
+                    BorderBrush="#D8D5CC" BorderThickness="0,1,0,0">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <!-- Attach button -->
+                    <Button x:Name="AttachButton" Grid.Column="0" Content="＋" FontSize="18"
+                            Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                            BorderThickness="0" Cursor="Hand" Width="36" Height="36"
+                            Click="SendFileButton_Click" VerticalAlignment="Center"/>
+                    <!-- Text input -->
+                    <Border Grid.Column="1" Background="{StaticResource BgDarkBrush}" CornerRadius="20" Padding="4,0" Margin="4,0">
+                        <TextBox x:Name="MessageInputBox" 
+                                 Background="Transparent" BorderThickness="0" 
+                                 Foreground="{StaticResource TextPrimaryBrush}" CaretBrush="{StaticResource TextPrimaryBrush}"
+                                 FontSize="13" VerticalAlignment="Center" Padding="12,8"
+                                 KeyDown="MessageInputBox_KeyDown" IsEnabled="False">
+                            <!-- Placeholder handled in code-behind -->
+                        </TextBox>
+                    </Border>
+                    <!-- Send button -->
+                    <Button x:Name="SendButton" Grid.Column="2" Content="Send" FontSize="13" FontWeight="SemiBold"
+                            Margin="8,0,0,0" Padding="16,8"
+                            Style="{StaticResource PrimaryButton}" 
+                            Click="SendButton_Click" IsEnabled="False"/>
+                </Grid>
+            </Border>
+
+            <!-- Empty state overlay -->
+            <StackPanel x:Name="EmptyStatePanel" Grid.Row="1" VerticalAlignment="Center" HorizontalAlignment="Center">
+                <TextBlock Text="💬" FontSize="48" HorizontalAlignment="Center" Margin="0,0,0,12"/>
+                <TextBlock Text="Chào mừng đến LanChat!" FontSize="18" FontWeight="SemiBold"
+                           Foreground="{StaticResource TextPrimaryBrush}" HorizontalAlignment="Center"/>
+                <TextBlock Text="Chọn một cuộc hội thoại từ thanh bên trái để bắt đầu" FontSize="13"
+                           Foreground="{StaticResource TextSecondaryBrush}" HorizontalAlignment="Center" Margin="0,6,0,0"/>
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

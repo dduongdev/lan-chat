@@ -1,6 +1,6 @@
-using System;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanChat.Client.Services;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
@@ -15,9 +15,7 @@ namespace LanChat.Client.Handlers.Chat
         {
             var res = payload.Deserialize<GroupMemberLeftPayload>();
             if (res != null)
-            {
-                Console.WriteLine($"[Client UI] Người dùng '{res.Username}' đã rời khỏi nhóm {res.GroupId}.");
-            }
+                ChatService.Instance.RaiseGroupMemberLeft(res.GroupId, res.Username);
             return Task.CompletedTask;
         }
     }

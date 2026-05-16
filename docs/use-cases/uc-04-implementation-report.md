@@ -1,6 +1,6 @@
 # Báo cáo Triển khai UC-04: Get Online Users
 
-Tài liệu này tổng kết các thành phần đã được triển khai cho Use Case **Get Online Users** (Lấy danh sách người dùng online), tuân thủ đúng yêu cầu kỹ thuật và quy tắc bảo mật từ `uc4_class_design.md`.
+Tài liệu này tổng kết các thành phần đã được triển khai cho Use Case **Get Online Users** (Lấy danh sách người dùng online), tuân thủ đúng yêu cầu kỹ thuật và quy tắc bảo mật từ `uc-04-class-design.md`.
 
 ## 1. Các thành phần đã triển khai
 

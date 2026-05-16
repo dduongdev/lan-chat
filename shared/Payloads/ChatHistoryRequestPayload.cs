@@ -11,6 +11,9 @@ namespace LanChat.Shared.Payloads
         /// <summary>Username đối phương (PRIVATE) hoặc GroupID.</summary>
         public string TargetId { get; set; } = string.Empty;
 
+        /// <summary>PRIVATE, GROUP, hoặc ALL</summary>
+        public string TargetType { get; set; } = "PRIVATE";
+
         /// <summary>Lấy các tin nhắn trước thời điểm này (phân trang). Null = lấy mới nhất.</summary>
         public DateTime? BeforeTimestamp { get; set; }
 

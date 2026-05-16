@@ -1,6 +1,6 @@
-using System;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanChat.Client.Services;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
@@ -15,9 +15,7 @@ namespace LanChat.Client.Handlers.Chat
         {
             var res = payload.Deserialize<GroupInfoDto>();
             if (res != null)
-            {
-                Console.WriteLine($"[Client UI] Bạn đã được thêm vào nhóm '{res.GroupName}' (Id: {res.GroupId}) bởi {res.Creator}.");
-            }
+                ChatService.Instance.RaiseGroupInviteReceived(res);
             return Task.CompletedTask;
         }
     }

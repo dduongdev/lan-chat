@@ -1,6 +1,8 @@
 using System;
+using System.Linq;
 using System.Text.Json;
 using System.Threading.Tasks;
+using LanChat.Client.Services;
 using LanChat.Messaging;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
@@ -16,15 +18,9 @@ namespace LanChat.Client.Handlers.User
             var response = payload.Deserialize<UserListResponsePayload>();
             if (response == null) return Task.CompletedTask;
 
-            Console.WriteLine($"[Client UI] Nhận được danh sách {response.Usernames.Count} người dùng online:");
-            foreach (var user in response.Usernames)
-            {
-                // Self-Exclusion: Loại trừ chính mình khỏi danh sách hiển thị
-                if (user != session.Username)
-                {
-                    Console.WriteLine($"   - {user}");
-                }
-            }
+            // Loại bỏ chính mình
+            var others = response.Usernames.Where(u => u != session.Username).ToList();
+            ChatService.Instance.RaiseUserListReceived(others);
 
             return Task.CompletedTask;
         }

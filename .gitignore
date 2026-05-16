@@ -28,3 +28,11 @@ bld/
 # OS files
 .DS_Store
 Thumbs.db
+
+# Uploads
+Uploads/
+
+# DB
+lanchat.db
+lanchat.db-shm
+lanchat.db-wal

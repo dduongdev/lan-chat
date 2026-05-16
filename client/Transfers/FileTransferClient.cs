@@ -1,31 +1,53 @@
 using System;
 using System.IO;
 using System.Net.Sockets;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 namespace LanChat.Client.Transfers
 {
     /// <summary>
-    /// Đóng gói logic truyền/nhận file qua kênh TCP Stream riêng biệt.
-    /// Kênh này hoàn toàn tách biệt với kênh Messaging chính.
+    /// UC-06 v2: Client-side file transfer logic.
+    /// - Upload: Kết nối Port 8081, gửi Token + Stream dữ liệu.
+    /// - Download: Kết nối Port 8081, gửi Token, nhận Stream dữ liệu.
     /// </summary>
     public static class FileTransferClient
     {
-        private const int BufferSize = 8192; // 8KB chunks
+        private const int BufferSize = 81920; // 80KB chunks
 
         /// <summary>
-        /// Gửi file lên Server proxy qua kênh TCP tạm thời.
+        /// Tính SHA-256 hash của file.
         /// </summary>
-        public static async Task StartSendingAsync(string host, int port, string filePath)
+        public static async Task<string> ComputeHashAsync(string filePath)
         {
-            Console.WriteLine($"[FileTransfer] Connecting to transfer channel {host}:{port} as SENDER...");
+            using var sha256 = SHA256.Create();
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize);
+            var hashBytes = await sha256.ComputeHashAsync(fileStream);
+            return BitConverter.ToString(hashBytes).Replace("-", "").ToLowerInvariant();
+        }
+
+        /// <summary>
+        /// Upload file lên Server qua Port 8081.
+        /// 1. Kết nối TCP đến ServerIP:8081
+        /// 2. Ghi 16 bytes Token lên đầu luồng
+        /// 3. Sao chép FileStream vào NetworkStream
+        /// </summary>
+        public static async Task UploadAsync(string host, int port, Guid transferToken, string filePath, Action<long, long>? onProgress = null)
+        {
+            Console.WriteLine($"[FileTransfer] Connecting to data plane {host}:{port} for UPLOAD...");
             using var tcpClient = new TcpClient();
             await tcpClient.ConnectAsync(host, port);
-            Console.WriteLine($"[FileTransfer] Connected. Sending file: {filePath}");
+            Console.WriteLine($"[FileTransfer] Connected. Uploading file: {filePath}");
 
             using var networkStream = tcpClient.GetStream();
-            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read);
 
+            // Ghi 16 bytes Token lên đầu luồng
+            var tokenBytes = transferToken.ToByteArray();
+            await networkStream.WriteAsync(tokenBytes, 0, tokenBytes.Length);
+            Console.WriteLine($"[FileTransfer] Token sent: {transferToken}");
+
+            // Sao chép file vào network stream
+            using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize);
             var buffer = new byte[BufferSize];
             long totalSent = 0;
             long fileSize = fileStream.Length;
@@ -36,49 +58,91 @@ namespace LanChat.Client.Transfers
                 await networkStream.WriteAsync(buffer, 0, bytesRead);
                 totalSent += bytesRead;
 
-                // Báo cáo tiến độ mỗi 10%
+                onProgress?.Invoke(totalSent, fileSize);
+
                 int progress = (int)(totalSent * 100 / fileSize);
                 if (totalSent == fileSize || progress % 10 == 0)
                 {
-                    Console.WriteLine($"[FileTransfer] Sending... {totalSent}/{fileSize} bytes ({progress}%)");
+                    Console.WriteLine($"[FileTransfer] Uploading... {totalSent}/{fileSize} bytes ({progress}%)");
                 }
             }
 
             await networkStream.FlushAsync();
-            Console.WriteLine($"[FileTransfer] File sent successfully. Total: {totalSent} bytes.");
+            // Đóng phía gửi để Server biết đã hết dữ liệu
+            tcpClient.Client.Shutdown(System.Net.Sockets.SocketShutdown.Send);
+            
+            // Chờ Server xử lý xong và đóng luồng từ phía Server (tránh đóng socket quá sớm gây lỗi RST)
+            var dummy = new byte[1];
+            await networkStream.ReadAsync(dummy, 0, 1);
+
+            Console.WriteLine($"[FileTransfer] Upload completed. Total: {totalSent} bytes.");
         }
 
         /// <summary>
-        /// Nhận file từ Server proxy qua kênh TCP tạm thời.
+        /// Download file từ Server qua Port 8081.
+        /// 1. Kết nối TCP đến ServerIP:8081
+        /// 2. Ghi 16 bytes Token lên đầu luồng
+        /// 3. Sao chép NetworkStream vào FileStream
+        /// 4. Kiểm tra SHA-256
         /// </summary>
-        public static async Task StartReceivingAsync(string host, int port, string savePath, long expectedSize)
+        public static async Task<bool> DownloadAsync(string host, int port, Guid transferToken, string savePath, string expectedHash, Action<long, long>? onProgress = null)
         {
-            Console.WriteLine($"[FileTransfer] Connecting to transfer channel {host}:{port} as RECEIVER...");
+            Console.WriteLine($"[FileTransfer] Connecting to data plane {host}:{port} for DOWNLOAD...");
             using var tcpClient = new TcpClient();
             await tcpClient.ConnectAsync(host, port);
-            Console.WriteLine($"[FileTransfer] Connected. Receiving file to: {savePath}");
+            Console.WriteLine($"[FileTransfer] Connected. Downloading to: {savePath}");
 
             using var networkStream = tcpClient.GetStream();
-            using var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write);
 
-            var buffer = new byte[BufferSize];
-            long totalReceived = 0;
+            // Ghi 16 bytes Token lên đầu luồng
+            var tokenBytes = transferToken.ToByteArray();
+            await networkStream.WriteAsync(tokenBytes, 0, tokenBytes.Length);
+            Console.WriteLine($"[FileTransfer] Token sent: {transferToken}");
 
-            int bytesRead;
-            while (totalReceived < expectedSize && (bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            // Đảm bảo thư mục đích tồn tại
+            Directory.CreateDirectory(Path.GetDirectoryName(savePath)!);
+
+            // Nhận dữ liệu từ network stream
+            using (var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize))
             {
-                await fileStream.WriteAsync(buffer, 0, bytesRead);
-                totalReceived += bytesRead;
+                var buffer = new byte[BufferSize];
+                long totalReceived = 0;
+                int bytesRead;
 
-                int progress = (int)(totalReceived * 100 / expectedSize);
-                if (totalReceived == expectedSize || progress % 10 == 0)
+                while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                 {
-                    Console.WriteLine($"[FileTransfer] Receiving... {totalReceived}/{expectedSize} bytes ({progress}%)");
+                    await fileStream.WriteAsync(buffer, 0, bytesRead);
+                    totalReceived += bytesRead;
+
+                    onProgress?.Invoke(totalReceived, 0);
+
+                    if (totalReceived % (BufferSize * 10) == 0 || bytesRead == 0)
+                    {
+                        Console.WriteLine($"[FileTransfer] Downloading... {totalReceived} bytes received.");
+                    }
                 }
+
+                await fileStream.FlushAsync();
+                Console.WriteLine($"[FileTransfer] Download stream received. Total: {totalReceived} bytes.");
             }
 
-            await fileStream.FlushAsync();
-            Console.WriteLine($"[FileTransfer] File received successfully. Total: {totalReceived} bytes. Saved to: {savePath}");
+            // Kiểm tra SHA-256
+            if (!string.IsNullOrEmpty(expectedHash))
+            {
+                string computedHash = await ComputeHashAsync(savePath);
+                Console.WriteLine($"[FileTransfer] Hash verification: expected={expectedHash}, computed={computedHash}");
+
+                if (computedHash != expectedHash)
+                {
+                    Console.WriteLine("[FileTransfer] Hash mismatch! Deleting corrupted file.");
+                    File.Delete(savePath);
+                    return false;
+                }
+                Console.WriteLine("[FileTransfer] Hash verification OK.");
+            }
+
+            Console.WriteLine($"[FileTransfer] Download completed successfully. Saved to: {savePath}");
+            return true;
         }
     }
 }
