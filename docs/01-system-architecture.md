@@ -15,9 +15,9 @@ Dưới đây là cấu trúc mã nguồn thực tế, bao gồm các thành ph�
 📁 LANCHAT (Root Solution)
 │
 ├── 📁 docs/                         # Tài liệu dự án
-│   ├── 📄 messaging_mechanism.md    # Đặc tả cơ chế Messaging
-│   ├── 📄 use_cases_design.md       # Đặc tả Use Cases
-│   └── 📄 system_architecture.md    # Đặc tả kiến trúc (File này)
+│   ├── 📄 03-messaging-mechanism.md # Đặc tả cơ chế Messaging
+│   ├── 📄 04-use-cases-design.md    # Đặc tả Use Cases
+│   └── 📄 01-system-architecture.md # Đặc tả kiến trúc (File này)
 │
 ├── 📁 simple-tcp/                   # [Layer 1] Subsystem Transport (Đã có)
 │   ├── 📁 Exceptions/               # Các lỗi liên quan đến kết nối và gói tin

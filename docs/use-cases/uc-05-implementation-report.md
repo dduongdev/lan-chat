@@ -1,6 +1,6 @@
 # Báo cáo Triển khai UC-05: Send Message (Chat)
 
-Tài liệu này tổng kết các thành phần đã được triển khai cho Use Case **Send Message** (Gửi tin nhắn), tuân thủ đúng đặc tả thiết kế từ `uc5_class_design.md`.
+Tài liệu này tổng kết các thành phần đã được triển khai cho Use Case **Send Message** (Gửi tin nhắn), tuân thủ đúng đặc tả thiết kế từ `uc-05-class-design.md`.
 
 ## 1. Tóm tắt kết quả
 
