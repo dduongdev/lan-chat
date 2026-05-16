@@ -155,23 +155,25 @@ namespace LanChat.Client.Views
             {
                 if (msg.TargetType == "PRIVATE")
                 {
-                    if (!_recentChats.Any(r => r.Id == msg.Sender))
+                    string otherUser = (msg.Sender == svc.CurrentUsername) ? msg.TargetId : msg.Sender;
+                    if (!_recentChats.Any(r => r.Id == otherUser) && otherUser != svc.CurrentUsername)
                     {
-                        var other = _otherOnlineUsers.FirstOrDefault(o => o.Id == msg.Sender);
+                        var other = _otherOnlineUsers.FirstOrDefault(o => o.Id == otherUser);
                         if (other != null) _otherOnlineUsers.Remove(other);
-                        _recentChats.Add(new SidebarItem { Id = msg.Sender, DisplayName = msg.Sender, Type = "USER", IsOnline = true });
+                        _recentChats.Add(new SidebarItem { Id = otherUser, DisplayName = otherUser, Type = "USER", IsOnline = true });
                     }
                 }
 
                 // Nếu đang mở cuộc hội thoại tương ứng -> thêm tin nhắn vào
                 bool isRelevant = false;
-                if (msg.TargetType == "PRIVATE" && _currentChatType == "PRIVATE" && _currentChatTarget == msg.Sender) isRelevant = true;
+                if (msg.TargetType == "PRIVATE" && _currentChatType == "PRIVATE" && _currentChatTarget == (msg.Sender == svc.CurrentUsername ? msg.TargetId : msg.Sender)) isRelevant = true;
                 else if (msg.TargetType == "GROUP" && _currentChatType == "GROUP" && _currentChatTarget == msg.TargetId) isRelevant = true;
                 else if (msg.TargetType == "ALL" && _currentChatType == "BROADCAST") isRelevant = true;
 
                 if (isRelevant)
                 {
-                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, false, msg.MessageType, msg.FileId, msg.FileName, msg.FileHash);
+                    bool isMine = msg.Sender == svc.CurrentUsername;
+                    AddMessageBubble(msg.Sender, msg.Content, msg.SentAt, isMine, msg.MessageType, msg.FileId, msg.FileName, msg.FileHash);
                 }
             });
 
@@ -556,7 +558,7 @@ namespace LanChat.Client.Views
             ScrollToBottom();
         }
 
-        private async void MessageBubble_MouseLeftButtonUp(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private async void MessageBubble_PreviewMouseLeftButtonDown(object sender, System.Windows.Input.MouseButtonEventArgs e)
         {
             if (sender is Border border && border.Tag is MessageBubble bubble)
             {

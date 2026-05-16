@@ -90,6 +90,7 @@ namespace LanChat.Server.Handlers.Chat
                     .OrderByDescending(m => m.SentAt)
                     .Take(limit)
                     .Include(m => m.Sender)
+                    .Include(m => m.FileTransfer)
                     .Select(m => new ChatMessageDto
                     {
                         ServerMessageId = m.Id,
@@ -98,6 +99,8 @@ namespace LanChat.Server.Handlers.Chat
                         SentAt = m.SentAt,
                         MessageType = m.MessageType,
                         FileId = m.FileId,
+                        FileName = m.FileTransfer != null ? m.FileTransfer.FileName : null,
+                        FileHash = m.FileTransfer != null ? m.FileTransfer.FileHash : null,
                         TargetType = request.TargetType,
                         TargetId = request.TargetId
                     })

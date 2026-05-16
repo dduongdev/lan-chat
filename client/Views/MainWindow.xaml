@@ -268,7 +268,7 @@
                                         Background="{Binding BubbleColor}"
                                         HorizontalAlignment="{Binding Alignment}"
                                         Cursor="{Binding MessageCursor}"
-                                        MouseLeftButtonUp="MessageBubble_MouseLeftButtonUp"
+                                        PreviewMouseLeftButtonDown="MessageBubble_PreviewMouseLeftButtonDown"
                                         Tag="{Binding}">
                                     <TextBlock Text="{Binding Content}" FontSize="13" TextWrapping="Wrap"
                                                Foreground="{StaticResource TextPrimaryBrush}"/>
