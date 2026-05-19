@@ -64,6 +64,7 @@ namespace LanChat.Client.Views
         private string? _currentChatType; // PRIVATE, GROUP, BROADCAST
         private string? _currentChatTarget; // Username, GroupId, or ALL
         private bool _isIntentionalClose = false;
+        private CallWindow? _callWindow;
 
         private readonly Brush _sentBubble;
         private readonly Brush _receivedBubble;
@@ -303,6 +304,33 @@ namespace LanChat.Client.Views
                     this.Close();
                 }
             });
+
+            CallService.Instance.IncomingCallReceived += invite => Dispatcher.Invoke(async () =>
+            {
+                var result = MessageBox.Show(
+                    $"{invite.Caller} đang gọi video. Bạn muốn nhận cuộc gọi?",
+                    "Cuộc gọi video",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question);
+
+                if (result == MessageBoxResult.Yes)
+                {
+                    await CallService.Instance.AcceptCallAsync(invite);
+                    ShowCallWindow($"Video call with {invite.Caller}");
+                }
+                else
+                {
+                    await CallService.Instance.RejectCallAsync(invite);
+                }
+            });
+
+            CallService.Instance.CallStatusChanged += status => Dispatcher.Invoke(() =>
+            {
+                if (status.StartsWith("Call failed:", StringComparison.Ordinal))
+                {
+                    MessageBox.Show(status, "Video call", MessageBoxButton.OK, MessageBoxImage.Warning);
+                }
+            });
         }
 
         // ═══════════════════════════════════════════════════════════════
@@ -327,6 +355,10 @@ namespace LanChat.Client.Views
             UserListBox.SelectedItem = null;
             GroupListBox.SelectedItem = null;
             SwitchChat("BROADCAST", "ALL", "#general", "AES Encrypted");
+            VideoCallButton.Visibility = Visibility.Collapsed;
+            SendFileButton.Visibility = Visibility.Collapsed;
+            AddMemberButton.Visibility = Visibility.Collapsed;
+            LeaveGroupButton.Visibility = Visibility.Collapsed;
         }
 
         private void UserListBox_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
@@ -339,6 +371,7 @@ namespace LanChat.Client.Views
 
                 GroupListBox.SelectedItem = null;
                 SwitchChat("PRIVATE", selectedUser.Id, selectedUser.DisplayName, "Trò chuyện riêng tư");
+                VideoCallButton.Visibility = Visibility.Visible;
                 SendFileButton.Visibility = Visibility.Visible;
                 AddMemberButton.Visibility = Visibility.Collapsed;
                 LeaveGroupButton.Visibility = Visibility.Collapsed;
@@ -352,6 +385,7 @@ namespace LanChat.Client.Views
                 RecentChatsListBox.SelectedItem = null;
                 UserListBox.SelectedItem = null;
                 SwitchChat("GROUP", item.Id, $"#{item.DisplayName}", $"AES Encrypted · {item.SubText}");
+                VideoCallButton.Visibility = Visibility.Visible;
                 SendFileButton.Visibility = Visibility.Visible;
                 AddMemberButton.Visibility = Visibility.Visible;
                 LeaveGroupButton.Visibility = Visibility.Visible;
@@ -382,6 +416,7 @@ namespace LanChat.Client.Views
             EmptyStatePanel.Visibility = Visibility.Visible;
             MessageInputBox.IsEnabled = false;
             SendButton.IsEnabled = false;
+            VideoCallButton.Visibility = Visibility.Collapsed;
             SendFileButton.Visibility = Visibility.Collapsed;
             AddMemberButton.Visibility = Visibility.Collapsed;
             LeaveGroupButton.Visibility = Visibility.Collapsed;
@@ -476,6 +511,22 @@ namespace LanChat.Client.Views
                     _ = ChatService.Instance.SendGroupFileUploadRequestAsync(gid, dialog.FileName);
                 }
                 AddSystemMessage($"📤 Đang gửi file: {System.IO.Path.GetFileName(dialog.FileName)}...");
+            }
+        }
+
+        private async void VideoCallButton_Click(object sender, RoutedEventArgs e)
+        {
+            if (_currentChatTarget == null || _currentChatType == null) return;
+
+            if (_currentChatType == "PRIVATE")
+            {
+                await CallService.Instance.StartPrivateCallAsync(_currentChatTarget);
+                ShowCallWindow($"Video call with {_currentChatTarget}");
+            }
+            else if (_currentChatType == "GROUP" && Guid.TryParse(_currentChatTarget, out var groupId))
+            {
+                await CallService.Instance.StartGroupCallAsync(groupId);
+                ShowCallWindow($"Video call: {ChatHeaderText.Text}");
             }
         }
 
@@ -592,6 +643,22 @@ namespace LanChat.Client.Views
         {
             int onlineCount = _otherOnlineUsers.Count + _recentChats.Count(r => r.IsOnline);
             OnlineCountText.Text = $"Online Users: {onlineCount}";
+        }
+
+        private void ShowCallWindow(string title)
+        {
+            if (_callWindow != null && _callWindow.IsVisible)
+            {
+                _callWindow.Activate();
+                return;
+            }
+
+            _callWindow = new CallWindow(title)
+            {
+                Owner = this
+            };
+            _callWindow.Closed += (_, _) => _callWindow = null;
+            _callWindow.Show();
         }
     }
 }

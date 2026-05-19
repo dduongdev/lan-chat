@@ -9,6 +9,7 @@ using LanChat.Messaging;
 using LanChat.Server.Data;
 using LanChat.Server.Handlers;
 using LanChat.Server.Handlers.Auth;
+using LanChat.Server.Handlers.Call;
 using LanChat.Server.Handlers.Chat;
 using LanChat.Server.Handlers.File;
 using LanChat.Server.Handlers.User;
@@ -32,6 +33,7 @@ namespace LanChat.Server
                 options.UseSqlite("Data Source=lanchat.db"));
             services.AddSingleton<IPasswordHasher, PasswordHasher>();
             services.AddSingleton<SessionManager>();
+            services.AddSingleton<CallSessionManager>();
 
             var serviceProvider = services.BuildServiceProvider();
 
@@ -46,6 +48,7 @@ namespace LanChat.Server
             // Lấy các Singleton services
             var passwordHasher = serviceProvider.GetRequiredService<IPasswordHasher>();
             var sessionManager = serviceProvider.GetRequiredService<SessionManager>();
+            var callSessionManager = serviceProvider.GetRequiredService<CallSessionManager>();
 
             // UC-06 v2: Khởi tạo FileStreamManager (Data Plane - Port 8081)
             var fileStreamManager = new FileStreamManager(serviceProvider, sessionManager);
@@ -72,6 +75,10 @@ namespace LanChat.Server
             dispatcher.RegisterHandler(new ServerGroupCreateHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerGroupAddHandler(serviceProvider, sessionManager));
             dispatcher.RegisterHandler(new ServerGroupLeaveHandler(serviceProvider, sessionManager));
+            dispatcher.RegisterHandler(new ServerCallInviteHandler(serviceProvider, sessionManager, callSessionManager));
+            dispatcher.RegisterHandler(new ServerCallResponseHandler(sessionManager, callSessionManager));
+            dispatcher.RegisterHandler(new ServerCallMediaStateHandler(sessionManager, callSessionManager));
+            dispatcher.RegisterHandler(new ServerCallEndHandler(sessionManager, callSessionManager));
 
             var tcpListener = new TcpListener(IPAddress.Any, 8080);
             tcpListener.Start();
@@ -119,9 +126,30 @@ namespace LanChat.Server
                     }
                     finally
                     {
+                        var username = sessionHandler.Username;
                         // Khi vòng lặp của session kết thúc (do lỗi, ngắt kết nối, hay logout)
                         // Luôn gọi đến phương thức dọn dẹp duy nhất.
                         await sessionManager.HandleDisconnectAsync(sessionHandler);
+
+                        if (!string.IsNullOrEmpty(username))
+                        {
+                            var affectedCalls = callSessionManager.RemoveUserFromAllCalls(username);
+                            foreach (var callId in affectedCalls)
+                            {
+                                var remaining = callSessionManager.GetParticipantUsernames(callId);
+                                await ServerCallNotifier.BroadcastParticipantLeftAsync(sessionManager, remaining, callId, username, "Disconnected");
+
+                                if (callSessionManager.GetParticipantCount(callId) < 2)
+                                {
+                                    await ServerCallNotifier.BroadcastEndedAsync(callSessionManager, sessionManager, callId, "NotEnoughParticipants", remaining);
+                                    callSessionManager.EndCall(callId);
+                                }
+                                else
+                                {
+                                    await ServerCallNotifier.BroadcastParticipantListAsync(callSessionManager, sessionManager, callId);
+                                }
+                            }
+                        }
                     }
                 });
             }

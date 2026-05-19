@@ -1,0 +1,57 @@
+<Window x:Class="LanChat.Client.Views.CallWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Video Call" Height="520" Width="760"
+        MinHeight="420" MinWidth="620"
+        WindowStartupLocation="CenterOwner"
+        Background="#121816">
+    <Grid Margin="16">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,12">
+            <Button DockPanel.Dock="Right" Content="End" Width="92" Height="34"
+                    Background="#B83232" Foreground="White" BorderThickness="0"
+                    Click="EndButton_Click"/>
+            <StackPanel>
+                <TextBlock x:Name="TitleText" Text="Video Call" Foreground="White"
+                           FontSize="18" FontWeight="SemiBold"/>
+                <TextBlock x:Name="StatusText" Text="Connecting..." Foreground="#A9B8AF"
+                           FontSize="12" Margin="0,4,0,0"/>
+            </StackPanel>
+        </DockPanel>
+
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="2*"/>
+                <ColumnDefinition Width="*"/>
+            </Grid.ColumnDefinitions>
+
+            <Border Grid.Column="0" Background="#050807" BorderBrush="#31423A"
+                    BorderThickness="1" CornerRadius="6" Margin="0,0,12,0">
+                <Grid>
+                    <Image x:Name="RemoteImage" Stretch="Uniform"/>
+                    <TextBlock x:Name="RemotePlaceholder" Text="Waiting for remote video"
+                               Foreground="#A9B8AF" HorizontalAlignment="Center"
+                               VerticalAlignment="Center"/>
+                </Grid>
+            </Border>
+
+            <Border Grid.Column="1" Background="#050807" BorderBrush="#31423A"
+                    BorderThickness="1" CornerRadius="6">
+                <Grid>
+                    <Image x:Name="LocalImage" Stretch="Uniform"/>
+                    <Border Background="#80000000" VerticalAlignment="Bottom" Padding="8">
+                        <TextBlock Text="Local test video" Foreground="White" FontSize="12"/>
+                    </Border>
+                </Grid>
+            </Border>
+        </Grid>
+
+        <TextBlock Grid.Row="2" Margin="0,12,0,0" Foreground="#A9B8AF" FontSize="12"
+                   Text="MVP: media chạy qua UDP P2P. Frame video hiện là nguồn phát sinh nội bộ để kiểm thử media path; có thể thay bằng camera capture sau."/>
+    </Grid>
+</Window>
