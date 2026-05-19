@@ -34,6 +34,19 @@ namespace LanChat.Server.Handlers.Call
 
         public async Task HandleAsync(SessionHandler session, JsonElement payload)
         {
+            try
+            {
+                await HandleCoreAsync(session, payload);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Call invite handler error: {ex.Message}");
+                await SafeFailAsync(session, "CallError", "Could not start the call. Please try again.");
+            }
+        }
+
+        private async Task HandleCoreAsync(SessionHandler session, JsonElement payload)
+        {
             if (string.IsNullOrEmpty(session.Username))
             {
                 await FailAsync(session, "Unauthorized", "You must login before starting a call.");
@@ -111,15 +124,24 @@ namespace LanChat.Server.Handlers.Call
                 MaxP2PMeshParticipants = CallSessionManager.MaxP2PMeshParticipants
             });
 
-            await targetSession.SendAsync(RoutingKeys.CallInviteIncoming, new CallInviteIncomingPayload
+            try
             {
-                CallId = call.CallId,
-                Caller = caller,
-                TargetType = "PRIVATE",
-                TargetId = target.Username,
-                CallerCameraEnabled = request.CameraEnabled,
-                CallerMicrophoneEnabled = request.MicrophoneEnabled
-            });
+                await targetSession.SendAsync(RoutingKeys.CallInviteIncoming, new CallInviteIncomingPayload
+                {
+                    CallId = call.CallId,
+                    Caller = caller,
+                    TargetType = "PRIVATE",
+                    TargetId = target.Username,
+                    CallerCameraEnabled = request.CameraEnabled,
+                    CallerMicrophoneEnabled = request.MicrophoneEnabled
+                });
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Call invite delivery failed to {target.Username}: {ex.Message}");
+                _callSessionManager.EndCall(call.CallId);
+                await SafeFailAsync(session, "TargetUnavailable", "Could not deliver the call invite.");
+            }
         }
 
         private async Task HandleGroupInviteAsync(
@@ -206,12 +228,27 @@ namespace LanChat.Server.Handlers.Call
                 CallerMicrophoneEnabled = request.MicrophoneEnabled
             };
 
+            int deliveredCount = 0;
             foreach (var username in onlineMembers)
             {
                 if (_sessionManager.TryGet(username, out var targetSession) && targetSession != null)
                 {
-                    await targetSession.SendAsync(RoutingKeys.CallInviteIncoming, incoming);
+                    try
+                    {
+                        await targetSession.SendAsync(RoutingKeys.CallInviteIncoming, incoming);
+                        deliveredCount++;
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Group call invite delivery failed to {username}: {ex.Message}");
+                    }
                 }
+            }
+
+            if (deliveredCount == 0)
+            {
+                _callSessionManager.EndCall(call.CallId);
+                await SafeFailAsync(session, "NoReachableParticipants", "Could not deliver the group call invite.");
             }
         }
 
@@ -233,6 +270,18 @@ namespace LanChat.Server.Handlers.Call
                 Reason = reason,
                 Message = message
             });
+        }
+
+        private static async Task SafeFailAsync(SessionHandler session, string reason, string message)
+        {
+            try
+            {
+                await FailAsync(session, reason, message);
+            }
+            catch
+            {
+                // The caller may already be disconnected; avoid bubbling into SessionHandler.
+            }
         }
     }
 }

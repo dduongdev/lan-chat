@@ -25,6 +25,7 @@ namespace LanChat.Client.Services
         private uint _frameId;
 
         public event Action<ushort, byte[]>? VideoFrameReceived;
+        public event Action<ushort, byte[]>? AudioPacketReceived;
         public event Action<string>? StatusChanged;
 
         public int LocalPort { get; private set; }
@@ -100,6 +101,31 @@ namespace LanChat.Client.Services
             }
         }
 
+        public async Task SendAudioPacketAsync(byte[] pcmBytes)
+        {
+            if (!IsConfigured || _udpClient == null || _remoteEndpoints.IsEmpty || pcmBytes.Length == 0) return;
+            if (pcmBytes.Length > CallMediaPacket.MaxPayloadSize) return;
+
+            var packet = new CallMediaPacket
+            {
+                PacketType = CallMediaPacketType.Audio,
+                CallId = _callId,
+                ParticipantId = _participantId,
+                Sequence = unchecked(++_sequence),
+                TimestampMs = GetTimestampMs(),
+                FrameId = unchecked(++_frameId),
+                FragmentIndex = 0,
+                FragmentCount = 1,
+                Codec = CallMediaCodec.Pcm16,
+                Payload = pcmBytes
+            }.ToBytes();
+
+            foreach (var endpoint in _remoteEndpoints.Values)
+            {
+                await _udpClient.SendAsync(packet, packet.Length, endpoint);
+            }
+        }
+
         public void SendHello()
         {
             if (!IsConfigured || _udpClient == null || _remoteEndpoints.IsEmpty) return;
@@ -144,6 +170,10 @@ namespace LanChat.Client.Services
                     else if (packet.PacketType == CallMediaPacketType.Video && packet.Codec == CallMediaCodec.Mjpeg)
                     {
                         HandleVideoPacket(packet);
+                    }
+                    else if (packet.PacketType == CallMediaPacketType.Audio && packet.Codec == CallMediaCodec.Pcm16)
+                    {
+                        AudioPacketReceived?.Invoke(packet.ParticipantId, packet.Payload);
                     }
                 }
                 catch (OperationCanceledException)

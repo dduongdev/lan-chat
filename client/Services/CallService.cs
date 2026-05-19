@@ -19,6 +19,7 @@ namespace LanChat.Client.Services
         public event Action<CallInviteIncomingPayload>? IncomingCallReceived;
         public event Action<string>? CallStatusChanged;
         public event Action<ushort, byte[]>? RemoteVideoFrameReceived;
+        public event Action<ushort, byte[]>? RemoteAudioPacketReceived;
         public event Action<CallEndedPayload>? CallEnded;
 
         public bool HasActiveCall => _callId != Guid.Empty;
@@ -31,6 +32,7 @@ namespace LanChat.Client.Services
             IncomingCallReceived = null;
             CallStatusChanged = null;
             RemoteVideoFrameReceived = null;
+            RemoteAudioPacketReceived = null;
             CallEnded = null;
             ResetTransport();
         }
@@ -125,6 +127,24 @@ namespace LanChat.Client.Services
             return _transport?.SendVideoFrameAsync(jpegBytes) ?? Task.CompletedTask;
         }
 
+        public Task SendAudioPacketAsync(byte[] pcmBytes)
+        {
+            return _transport?.SendAudioPacketAsync(pcmBytes) ?? Task.CompletedTask;
+        }
+
+        public async Task SetMediaStateAsync(bool cameraEnabled, bool microphoneEnabled)
+        {
+            var session = ChatService.Instance.Session;
+            if (session == null || _callId == Guid.Empty) return;
+
+            await session.SendAsync(RoutingKeys.CallMediaState, new CallMediaStatePayload
+            {
+                CallId = _callId,
+                CameraEnabled = cameraEnabled,
+                MicrophoneEnabled = microphoneEnabled
+            });
+        }
+
         public void HandleInviteCreated(CallInviteCreatedPayload payload)
         {
             _callId = payload.CallId;
@@ -173,6 +193,15 @@ namespace LanChat.Client.Services
             CallStatusChanged?.Invoke($"{payload.Username} left the call.");
         }
 
+        public void HandleMediaState(CallMediaStatePayload payload)
+        {
+            if (_callId != Guid.Empty && payload.CallId != _callId) return;
+
+            string camera = payload.CameraEnabled ? "camera on" : "camera off";
+            string microphone = payload.MicrophoneEnabled ? "mic on" : "mic off";
+            CallStatusChanged?.Invoke($"Remote media changed: {camera}, {microphone}");
+        }
+
         public void HandleCallEnded(CallEndedPayload payload)
         {
             ResetTransport();
@@ -186,6 +215,7 @@ namespace LanChat.Client.Services
 
             _transport = new UdpMediaTransport();
             _transport.VideoFrameReceived += (participantId, frame) => RemoteVideoFrameReceived?.Invoke(participantId, frame);
+            _transport.AudioPacketReceived += (participantId, audio) => RemoteAudioPacketReceived?.Invoke(participantId, audio);
             _transport.StatusChanged += status => CallStatusChanged?.Invoke(status);
             _transport.Open();
 

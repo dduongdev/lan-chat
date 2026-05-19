@@ -23,6 +23,18 @@ namespace LanChat.Server.Handlers.Call
 
         public async Task HandleAsync(SessionHandler session, JsonElement payload)
         {
+            try
+            {
+                await HandleCoreAsync(session, payload);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Call media state handler error: {ex.Message}");
+            }
+        }
+
+        private async Task HandleCoreAsync(SessionHandler session, JsonElement payload)
+        {
             if (string.IsNullOrEmpty(session.Username)) return;
 
             var request = payload.Deserialize<CallMediaStatePayload>();
@@ -42,7 +54,14 @@ namespace LanChat.Server.Handlers.Call
                 if (username == session.Username) continue;
                 if (_sessionManager.TryGet(username, out var targetSession) && targetSession != null)
                 {
-                    await targetSession.SendAsync(RoutingKeys.CallMediaState, request);
+                    try
+                    {
+                        await targetSession.SendAsync(RoutingKeys.CallMediaState, request);
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"Call media state send failed to {username}: {ex.Message}");
+                    }
                 }
             }
         }

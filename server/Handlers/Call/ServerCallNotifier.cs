@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
+using LanChat.Messaging;
 using LanChat.Server.State;
 using LanChat.Shared.Constants;
 using LanChat.Shared.Payloads;
@@ -25,7 +26,7 @@ namespace LanChat.Server.Handlers.Call
             {
                 if (sessionManager.TryGet(username, out var targetSession) && targetSession != null)
                 {
-                    await targetSession.SendAsync(RoutingKeys.CallParticipantList, payload);
+                    await TrySendAsync(targetSession, RoutingKeys.CallParticipantList, payload);
                 }
             }
         }
@@ -44,7 +45,7 @@ namespace LanChat.Server.Handlers.Call
             {
                 if (sessionManager.TryGet(username, out var targetSession) && targetSession != null)
                 {
-                    await targetSession.SendAsync(RoutingKeys.CallEnded, payload);
+                    await TrySendAsync(targetSession, RoutingKeys.CallEnded, payload);
                 }
             }
         }
@@ -67,8 +68,20 @@ namespace LanChat.Server.Handlers.Call
             {
                 if (sessionManager.TryGet(recipient, out var targetSession) && targetSession != null)
                 {
-                    await targetSession.SendAsync(RoutingKeys.CallParticipantLeft, payload);
+                    await TrySendAsync(targetSession, RoutingKeys.CallParticipantLeft, payload);
                 }
+            }
+        }
+
+        private static async Task TrySendAsync<T>(SessionHandler targetSession, string routingKey, T payload)
+        {
+            try
+            {
+                await targetSession.SendAsync(routingKey, payload);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Call notify send failed ({routingKey}): {ex.Message}");
             }
         }
     }
