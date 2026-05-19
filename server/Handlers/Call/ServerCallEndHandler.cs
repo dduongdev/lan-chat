@@ -50,7 +50,7 @@ namespace LanChat.Server.Handlers.Call
             }
             if (!isParticipant) return;
 
-            if (call.TargetType == "PRIVATE" || username == call.Caller)
+            if (call.TargetType == "PRIVATE")
             {
                 var recipients = _callSessionManager.GetParticipantUsernames(request.CallId);
                 await ServerCallNotifier.BroadcastEndedAsync(_callSessionManager, _sessionManager, request.CallId, request.Reason, recipients);

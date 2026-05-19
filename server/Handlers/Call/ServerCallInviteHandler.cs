@@ -195,6 +195,39 @@ namespace LanChat.Server.Handlers.Call
                 return;
             }
 
+            if (_callSessionManager.TryGetActiveGroupCall(groupId, out var existingCall) && existingCall != null)
+            {
+                bool added = _callSessionManager.AddParticipant(
+                    existingCall.CallId,
+                    caller,
+                    callerIp,
+                    request.UdpPort,
+                    request.CameraEnabled,
+                    request.MicrophoneEnabled);
+
+                if (!added)
+                {
+                    await FailAsync(session, "CallFull", "This group call is already full.");
+                    return;
+                }
+
+                if (!_callSessionManager.TryGetParticipant(existingCall.CallId, caller, out var self) || self == null)
+                {
+                    await FailAsync(session, "CallError", "Could not join ongoing call.");
+                    return;
+                }
+
+                await session.SendAsync(RoutingKeys.CallInviteCreated, new CallInviteCreatedPayload
+                {
+                    CallId = existingCall.CallId,
+                    ParticipantId = self.ParticipantId,
+                    MaxP2PMeshParticipants = CallSessionManager.MaxP2PMeshParticipants
+                });
+
+                await ServerCallNotifier.BroadcastParticipantListAsync(_callSessionManager, _sessionManager, existingCall.CallId);
+                return;
+            }
+
             if (onlineMembers.Count + 1 > CallSessionManager.MaxP2PMeshParticipants)
             {
                 await FailAsync(session, "TooManyParticipantsForP2P", "Too many online participants for UDP P2P mesh.");

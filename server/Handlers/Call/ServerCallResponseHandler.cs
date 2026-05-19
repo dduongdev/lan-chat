@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Net;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -61,7 +62,10 @@ namespace LanChat.Server.Handlers.Call
 
                 if (shouldEnd)
                 {
-                    var recipients = _callSessionManager.GetParticipantUsernames(request.CallId);
+                    var recipients = _callSessionManager.GetParticipantUsernames(request.CallId)
+                        .Concat(call.InvitedUsers)
+                        .Distinct(StringComparer.Ordinal)
+                        .ToList();
                     await ServerCallNotifier.BroadcastEndedAsync(_callSessionManager, _sessionManager, request.CallId, "Rejected", recipients);
                     _callSessionManager.EndCall(request.CallId);
                 }

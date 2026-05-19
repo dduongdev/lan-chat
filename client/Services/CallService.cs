@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using LanChat.Shared.Constants;
@@ -15,15 +16,20 @@ namespace LanChat.Client.Services
         private Guid _callId;
         private ushort _participantId;
         private bool _isEnding;
+        private string? _pendingOutgoingGroupId;
+        private readonly Dictionary<Guid, string> _groupIdByCallId = new();
+        private readonly HashSet<string> _ongoingGroupCalls = new(StringComparer.OrdinalIgnoreCase);
 
         public event Action<CallInviteIncomingPayload>? IncomingCallReceived;
         public event Action<string>? CallStatusChanged;
         public event Action<ushort, byte[]>? RemoteVideoFrameReceived;
         public event Action<ushort, byte[]>? RemoteAudioPacketReceived;
         public event Action<CallEndedPayload>? CallEnded;
+        public event Action<string, bool>? GroupCallStateChanged;
 
         public bool HasActiveCall => _callId != Guid.Empty;
         public Guid ActiveCallId => _callId;
+        public bool IsGroupCallOngoing(string groupId) => _ongoingGroupCalls.Contains(groupId);
 
         private CallService() { }
 
@@ -34,6 +40,10 @@ namespace LanChat.Client.Services
             RemoteVideoFrameReceived = null;
             RemoteAudioPacketReceived = null;
             CallEnded = null;
+            GroupCallStateChanged = null;
+            _pendingOutgoingGroupId = null;
+            _groupIdByCallId.Clear();
+            _ongoingGroupCalls.Clear();
             ResetTransport();
         }
 
@@ -44,6 +54,7 @@ namespace LanChat.Client.Services
 
         public async Task StartGroupCallAsync(Guid groupId)
         {
+            _pendingOutgoingGroupId = groupId.ToString();
             await StartCallAsync("GROUP", groupId.ToString());
         }
 
@@ -150,11 +161,25 @@ namespace LanChat.Client.Services
             _callId = payload.CallId;
             _participantId = payload.ParticipantId;
             _transport?.Configure(_callId, _participantId);
+
+            if (!string.IsNullOrWhiteSpace(_pendingOutgoingGroupId))
+            {
+                _groupIdByCallId[_callId] = _pendingOutgoingGroupId;
+                MarkGroupCallState(_pendingOutgoingGroupId, true);
+                _pendingOutgoingGroupId = null;
+            }
+
             CallStatusChanged?.Invoke($"Call created. Waiting for participants...");
         }
 
         public void HandleIncomingCall(CallInviteIncomingPayload payload)
         {
+            if (payload.TargetType == "GROUP" && !string.IsNullOrWhiteSpace(payload.TargetId))
+            {
+                _groupIdByCallId[payload.CallId] = payload.TargetId;
+                MarkGroupCallState(payload.TargetId, true);
+            }
+
             IncomingCallReceived?.Invoke(payload);
         }
 
@@ -204,9 +229,24 @@ namespace LanChat.Client.Services
 
         public void HandleCallEnded(CallEndedPayload payload)
         {
+            if (_groupIdByCallId.TryGetValue(payload.CallId, out var groupId))
+            {
+                _groupIdByCallId.Remove(payload.CallId);
+                MarkGroupCallState(groupId, false);
+            }
+
             ResetTransport();
             CallEnded?.Invoke(payload);
             CallStatusChanged?.Invoke($"Call ended: {payload.Reason}");
+        }
+
+        private void MarkGroupCallState(string groupId, bool isOngoing)
+        {
+            bool changed = isOngoing ? _ongoingGroupCalls.Add(groupId) : _ongoingGroupCalls.Remove(groupId);
+            if (changed)
+            {
+                GroupCallStateChanged?.Invoke(groupId, isOngoing);
+            }
         }
 
         private void EnsureTransport()

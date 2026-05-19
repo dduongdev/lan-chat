@@ -78,6 +78,39 @@ Mục đích thay đổi: thêm bộ key `call.*` để định tuyến control 
 - Nếu full mesh (vượt giới hạn) thì trả `call.ended` với reason `CallFull`.
 - Nếu thành công, server broadcast `call.participant.list` cho toàn bộ participant.
 
+### 5.2.1 Workflow chi tiết cho Group Video Call
+1. Caller chọn group và gửi `call.invite.req` với:
+- `TargetType = "GROUP"`
+- `TargetId = <GroupId>`
+- `UdpPort` local của caller.
+2. `ServerCallInviteHandler` kiểm tra:
+- `GroupId` hợp lệ.
+- Caller có là thành viên group không.
+- Có group tồn tại trong DB không.
+- Có member online (trừ caller) không.
+- `onlineMembers.Count + 1 <= MaxP2PMeshParticipants` (hiện tại là 5).
+3. Nếu pass validation:
+- Server tạo `CallSession` (`TargetType="GROUP"`), thêm caller vào `Participants`.
+- Server gửi `call.invite.created` cho caller (kèm `CallId`, `ParticipantId`).
+- Server gửi `call.invite.incoming` đến từng member online trong group.
+4. Từng member phản hồi `call.response`:
+- `Accept=true`: server thêm participant (IP + UDP port + media state ban đầu), rồi broadcast `call.participant.list` cho toàn bộ người đang trong call.
+- `Accept=false`: server ghi nhận reject; nếu toàn bộ invited đều reject thì kết thúc call bằng `call.ended` reason `Rejected`.
+5. Khi call đã active:
+- Mỗi lần có participant mới accept, server lại broadcast list mới để client cập nhật peer mesh UDP.
+- Client tự rebuild danh sách endpoint UDP theo participant list mới nhất.
+6. Rời call trong group:
+- Nếu caller hoặc luồng xử lý xem như kết thúc toàn cuộc gọi: server broadcast `call.ended`.
+- Nếu member thường rời: server broadcast `call.participant.left`, sau đó broadcast `call.participant.list`.
+- Nếu còn dưới 2 người: server tự kết thúc call với reason `NotEnoughParticipants`.
+
+### 5.2.2 Mô tả hành vi Group Call
+- Mô hình kết nối: full-mesh P2P UDP giữa các participant đang active.
+- Server chỉ làm signaling/state orchestration, không relay media.
+- Participant mới vào sẽ nhận đầy đủ danh sách peer hiện tại qua `call.participant.list`.
+- Giới hạn participant là ràng buộc kỹ thuật để tránh bùng nổ số kết nối mesh (`N*(N-1)` hướng gửi).
+- Trường hợp không gửi được invite tới bất kỳ ai online, server fail call sớm với `NoReachableParticipants`.
+
 ### 5.3 Thiết lập UDP peer mesh
 1. Client nhận `call.participant.list`.
 2. `CallService` cấu hình `UdpMediaTransport` với `CallId`, `ParticipantId`.
