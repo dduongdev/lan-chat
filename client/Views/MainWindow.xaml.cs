@@ -653,10 +653,7 @@ namespace LanChat.Client.Views
                 return;
             }
 
-            _callWindow = new CallWindow(title)
-            {
-                Owner = this
-            };
+            _callWindow = new CallWindow(title);
             _callWindow.Closed += (_, _) => _callWindow = null;
             _callWindow.Show();
         }

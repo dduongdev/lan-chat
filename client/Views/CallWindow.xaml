@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="Video Call" Height="520" Width="760"
         MinHeight="420" MinWidth="620"
-        WindowStartupLocation="CenterOwner"
+        WindowStartupLocation="CenterScreen"
         Background="#121816">
     <Grid Margin="16">
         <Grid.RowDefinitions>
