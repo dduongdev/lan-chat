@@ -76,6 +76,35 @@ namespace LanChat.Server.State
 
         public bool TryGet(Guid callId, out CallSession? call) => _activeCalls.TryGetValue(callId, out call);
 
+        public bool TryGetActiveGroupCall(Guid groupId, out CallSession? call)
+        {
+            string targetId = groupId.ToString();
+            foreach (var item in _activeCalls.Values)
+            {
+                if (item.TargetType == "GROUP" &&
+                    string.Equals(item.TargetId, targetId, StringComparison.OrdinalIgnoreCase))
+                {
+                    call = item;
+                    return true;
+                }
+            }
+
+            call = null;
+            return false;
+        }
+
+        public bool TryGetParticipant(Guid callId, string username, out CallParticipant? participant)
+        {
+            participant = null;
+            if (!_activeCalls.TryGetValue(callId, out var call)) return false;
+            lock (call)
+            {
+                if (!call.Participants.TryGetValue(username, out var existing)) return false;
+                participant = existing;
+                return true;
+            }
+        }
+
         public bool AddParticipant(
             Guid callId,
             string username,
