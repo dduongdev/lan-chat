@@ -25,6 +25,18 @@ namespace LanChat.Server.Handlers.Call
 
         public async Task HandleAsync(SessionHandler session, JsonElement payload)
         {
+            try
+            {
+                await HandleCoreAsync(session, payload);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Call response handler error: {ex.Message}");
+            }
+        }
+
+        private async Task HandleCoreAsync(SessionHandler session, JsonElement payload)
+        {
             if (string.IsNullOrEmpty(session.Username)) return;
 
             var request = payload.Deserialize<CallResponsePayload>();

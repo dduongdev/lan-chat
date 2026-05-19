@@ -434,6 +434,7 @@ namespace LanChat.Client.Services
             dispatcher.RegisterHandler(new Handlers.Call.ClientCallInviteIncomingHandler());
             dispatcher.RegisterHandler(new Handlers.Call.ClientCallInviteFailHandler());
             dispatcher.RegisterHandler(new Handlers.Call.ClientCallParticipantListHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallMediaStateHandler());
             dispatcher.RegisterHandler(new Handlers.Call.ClientCallParticipantLeftHandler());
             dispatcher.RegisterHandler(new Handlers.Call.ClientCallEndedHandler());
             return dispatcher;
