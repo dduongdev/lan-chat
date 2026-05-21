@@ -30,6 +30,8 @@ namespace LanChat.Server.Transfers
         public string TargetId { get; set; } = string.Empty;
         public string UploaderUsername { get; set; } = string.Empty;
         public DateTime ExpiresAt { get; set; }
+        public byte[]? AesKey { get; set; }
+        public byte[]? AesIV { get; set; }
     }
 
     /// <summary>
@@ -177,7 +179,19 @@ namespace LanChat.Server.Transfers
                 Console.WriteLine($"[FileStreamManager] Receiving upload for FileId={context.FileId}...");
                 using (var fileStream = new FileStream(filePath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize))
                 {
-                    await networkStream.CopyToAsync(fileStream, BufferSize);
+                    if (context.AesKey != null && context.AesIV != null)
+                    {
+                        using var aes = Aes.Create();
+                        aes.Key = context.AesKey;
+                        aes.IV = context.AesIV;
+                        // AES_CBC (mặc định) có thể cần padding nếu không đủ block. NetworkStream sẽ End block khi Socket đóng.
+                        using var cryptoStream = new CryptoStream(networkStream, aes.CreateDecryptor(), CryptoStreamMode.Read);
+                        await cryptoStream.CopyToAsync(fileStream, BufferSize);
+                    }
+                    else
+                    {
+                        await networkStream.CopyToAsync(fileStream, BufferSize);
+                    }
                     await fileStream.FlushAsync();
                 }
                 Console.WriteLine($"[FileStreamManager] Upload stream received for FileId={context.FileId}.");
@@ -384,7 +398,21 @@ namespace LanChat.Server.Transfers
 
                 Console.WriteLine($"[FileStreamManager] Sending download for FileId={context.FileId}...");
                 using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize);
-                await fileStream.CopyToAsync(networkStream, BufferSize);
+                
+                if (context.AesKey != null && context.AesIV != null)
+                {
+                    using var aes = Aes.Create();
+                    aes.Key = context.AesKey;
+                    aes.IV = context.AesIV;
+                    using var cryptoStream = new CryptoStream(networkStream, aes.CreateEncryptor(), CryptoStreamMode.Write, leaveOpen: true);
+                    await fileStream.CopyToAsync(cryptoStream, BufferSize);
+                    await cryptoStream.FlushFinalBlockAsync();
+                }
+                else
+                {
+                    await fileStream.CopyToAsync(networkStream, BufferSize);
+                }
+
                 await networkStream.FlushAsync();
                 Console.WriteLine($"[FileStreamManager] Download completed for FileId={context.FileId}. {fileStream.Length} bytes sent.");
             }

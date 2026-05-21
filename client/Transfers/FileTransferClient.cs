@@ -30,9 +30,9 @@ namespace LanChat.Client.Transfers
         /// Upload file lên Server qua Port 8081.
         /// 1. Kết nối TCP đến ServerIP:8081
         /// 2. Ghi 16 bytes Token lên đầu luồng
-        /// 3. Sao chép FileStream vào NetworkStream
+        /// 3. Sao chép FileStream vào NetworkStream (kèm mã hoá AES)
         /// </summary>
-        public static async Task UploadAsync(string host, int port, Guid transferToken, string filePath, Action<long, long>? onProgress = null)
+        public static async Task UploadAsync(string host, int port, Guid transferToken, string filePath, byte[]? aesKey = null, byte[]? aesIV = null, Action<long, long>? onProgress = null)
         {
             Console.WriteLine($"[FileTransfer] Connecting to data plane {host}:{port} for UPLOAD...");
             using var tcpClient = new TcpClient();
@@ -48,22 +48,38 @@ namespace LanChat.Client.Transfers
 
             // Sao chép file vào network stream
             using var fileStream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.Read, BufferSize);
-            var buffer = new byte[BufferSize];
             long totalSent = 0;
             long fileSize = fileStream.Length;
 
-            int bytesRead;
-            while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+            if (aesKey != null && aesIV != null)
             {
-                await networkStream.WriteAsync(buffer, 0, bytesRead);
-                totalSent += bytesRead;
-
-                onProgress?.Invoke(totalSent, fileSize);
-
-                int progress = (int)(totalSent * 100 / fileSize);
-                if (totalSent == fileSize || progress % 10 == 0)
+                using var aes = Aes.Create();
+                aes.Key = aesKey;
+                aes.IV = aesIV;
+                // leaveOpen: true để tránh dispose networkStream sớm do CryptoStream.Dispose
+                using var cryptoStream = new CryptoStream(networkStream, aes.CreateEncryptor(), CryptoStreamMode.Write, leaveOpen: true);
+                
+                var buffer = new byte[BufferSize];
+                int bytesRead;
+                while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                 {
-                    Console.WriteLine($"[FileTransfer] Uploading... {totalSent}/{fileSize} bytes ({progress}%)");
+                    await cryptoStream.WriteAsync(buffer, 0, bytesRead);
+                    totalSent += bytesRead;
+                    onProgress?.Invoke(totalSent, fileSize);
+                }
+                
+                // Cần đảm bảo block cuối cùng được flush và viết vào network
+                await cryptoStream.FlushFinalBlockAsync();
+            }
+            else
+            {
+                var buffer = new byte[BufferSize];
+                int bytesRead;
+                while ((bytesRead = await fileStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                {
+                    await networkStream.WriteAsync(buffer, 0, bytesRead);
+                    totalSent += bytesRead;
+                    onProgress?.Invoke(totalSent, fileSize);
                 }
             }
 
@@ -82,10 +98,10 @@ namespace LanChat.Client.Transfers
         /// Download file từ Server qua Port 8081.
         /// 1. Kết nối TCP đến ServerIP:8081
         /// 2. Ghi 16 bytes Token lên đầu luồng
-        /// 3. Sao chép NetworkStream vào FileStream
+        /// 3. Sao chép NetworkStream vào FileStream (kèm giải mã AES)
         /// 4. Kiểm tra SHA-256
         /// </summary>
-        public static async Task<bool> DownloadAsync(string host, int port, Guid transferToken, string savePath, string expectedHash, Action<long, long>? onProgress = null)
+        public static async Task<bool> DownloadAsync(string host, int port, Guid transferToken, string savePath, string expectedHash, byte[]? aesKey = null, byte[]? aesIV = null, Action<long, long>? onProgress = null)
         {
             Console.WriteLine($"[FileTransfer] Connecting to data plane {host}:{port} for DOWNLOAD...");
             using var tcpClient = new TcpClient();
@@ -105,20 +121,33 @@ namespace LanChat.Client.Transfers
             // Nhận dữ liệu từ network stream
             using (var fileStream = new FileStream(savePath, FileMode.Create, FileAccess.Write, FileShare.None, BufferSize))
             {
-                var buffer = new byte[BufferSize];
                 long totalReceived = 0;
-                int bytesRead;
-
-                while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                
+                if (aesKey != null && aesIV != null)
                 {
-                    await fileStream.WriteAsync(buffer, 0, bytesRead);
-                    totalReceived += bytesRead;
-
-                    onProgress?.Invoke(totalReceived, 0);
-
-                    if (totalReceived % (BufferSize * 10) == 0 || bytesRead == 0)
+                    using var aes = Aes.Create();
+                    aes.Key = aesKey;
+                    aes.IV = aesIV;
+                    using var cryptoStream = new CryptoStream(networkStream, aes.CreateDecryptor(), CryptoStreamMode.Read);
+                    
+                    var buffer = new byte[BufferSize];
+                    int bytesRead;
+                    while ((bytesRead = await cryptoStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
                     {
-                        Console.WriteLine($"[FileTransfer] Downloading... {totalReceived} bytes received.");
+                        await fileStream.WriteAsync(buffer, 0, bytesRead);
+                        totalReceived += bytesRead;
+                        onProgress?.Invoke(totalReceived, 0);
+                    }
+                }
+                else
+                {
+                    var buffer = new byte[BufferSize];
+                    int bytesRead;
+                    while ((bytesRead = await networkStream.ReadAsync(buffer, 0, buffer.Length)) > 0)
+                    {
+                        await fileStream.WriteAsync(buffer, 0, bytesRead);
+                        totalReceived += bytesRead;
+                        onProgress?.Invoke(totalReceived, 0);
                     }
                 }
 

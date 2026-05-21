@@ -70,6 +70,7 @@ namespace LanChat.Client.Handlers.File
                 {
                     await FileTransferClient.UploadAsync(
                         host, 8081, response.TransferToken, filePath,
+                        session.Cipher?.Key, session.Cipher?.IV,
                         (sent, total) => ChatService.Instance.RaiseFileTransferProgress(response.FileId, sent, total)
                     );
                     Console.WriteLine($"[Client] Upload completed for FileId={response.FileId}. Waiting for server confirmation...");
@@ -111,6 +112,7 @@ namespace LanChat.Client.Handlers.File
                 {
                     bool success = await FileTransferClient.DownloadAsync(
                         host, 8081, response.TransferToken, savePath, expectedHash ?? "",
+                        session.Cipher?.Key, session.Cipher?.IV,
                         (received, total) => ChatService.Instance.RaiseFileTransferProgress(response.FileId, received, total)
                     );
 

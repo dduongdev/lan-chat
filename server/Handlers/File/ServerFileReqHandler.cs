@@ -95,7 +95,9 @@ namespace LanChat.Server.Handlers.File
                     ExpectedHash = request.FileHash,
                     TargetType = request.TargetType,
                     TargetId = request.TargetId,
-                    UploaderUsername = session.Username
+                    UploaderUsername = session.Username,
+                    AesKey = session.Cipher?.Key,
+                    AesIV = session.Cipher?.IV
                 });
 
                 // Trả về TransferTokenResponsePayload (kèm ClientRequestId để Client xác định file)
@@ -216,7 +218,9 @@ namespace LanChat.Server.Handlers.File
                 _fileStreamManager.RegisterToken(token, new TransferContext
                 {
                     Action = "DOWNLOAD",
-                    FileId = transfer.Id
+                    FileId = transfer.Id,
+                    AesKey = session.Cipher?.Key,
+                    AesIV = session.Cipher?.IV
                 });
 
                 var response = new TransferTokenResponsePayload
