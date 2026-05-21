@@ -226,6 +226,10 @@
                 <DockPanel>
                     <!-- Action buttons -->
                     <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                        <Button x:Name="VideoCallButton" Content="🎥" FontSize="14" ToolTip="Gọi video"
+                                Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
+                                BorderThickness="0" Cursor="Hand" Click="VideoCallButton_Click"
+                                Width="32" Height="32" Visibility="Collapsed"/>
                         <Button x:Name="SendFileButton" Content="📎" FontSize="16" ToolTip="Gửi file"
                                 Background="Transparent" Foreground="{StaticResource TextSecondaryBrush}"
                                 BorderThickness="0" Cursor="Hand" Click="SendFileButton_Click"

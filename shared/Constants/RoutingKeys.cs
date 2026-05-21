@@ -101,5 +101,18 @@ namespace LanChat.Shared.Constants
 
         // Client -> Server: Ping heartbeat
         public const string SysPing = "sys.ping";
+
+        // ── UC-11: Video Call over UDP ─────────────────────────────────
+
+        public const string CallInviteReq = "call.invite.req";
+        public const string CallInviteCreated = "call.invite.created";
+        public const string CallInviteIncoming = "call.invite.incoming";
+        public const string CallInviteFail = "call.invite.fail";
+        public const string CallResponse = "call.response";
+        public const string CallParticipantList = "call.participant.list";
+        public const string CallMediaState = "call.media.state";
+        public const string CallParticipantLeft = "call.participant.left";
+        public const string CallEnd = "call.end";
+        public const string CallEnded = "call.ended";
     }
 }

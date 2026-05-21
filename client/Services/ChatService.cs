@@ -99,6 +99,7 @@ namespace LanChat.Client.Services
             OnGroupMemberLeft = null;
             OnDisconnected = null;
             OnHandshakeCompleted = null;
+            CallService.Instance.ClearEvents();
         }
 
         private ChatService() { }
@@ -429,6 +430,13 @@ namespace LanChat.Client.Services
             dispatcher.RegisterHandler(new Handlers.Chat.ClientGroupMemberAddedHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientGroupLeaveResponseHandler());
             dispatcher.RegisterHandler(new Handlers.Chat.ClientGroupMemberLeftHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallInviteCreatedHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallInviteIncomingHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallInviteFailHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallParticipantListHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallMediaStateHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallParticipantLeftHandler());
+            dispatcher.RegisterHandler(new Handlers.Call.ClientCallEndedHandler());
             return dispatcher;
         }
     }
